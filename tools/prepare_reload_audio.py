@@ -23,7 +23,7 @@ def render(weapon, event, seed):
     strikes = {
         "remove": [(0.008, 0.65, 0.011), (0.057, 0.25, 0.025), (0.128, 0.19, 0.015)],
         "insert": [(0.007, 0.32, 0.018), (0.077, 1.0, 0.022), (0.116, 0.31, 0.014)],
-        "mechanism": [(0.008, 0.65, 0.018), (0.083, 0.95, 0.019), (0.112, 0.3, 0.011)],
+        "mechanism": [(0.004, 0.45, 0.012), (0.065, 1.0, 0.012), (0.094, 0.22, 0.007)],
     }[event]
     for offset, gain, decay in strikes:
         start = int(offset * RATE)
@@ -34,9 +34,9 @@ def render(weapon, event, seed):
             noise = rng.uniform(-1.0, 1.0)
             smooth_noise += 0.42 * (noise - smooth_noise)
             metallic = sum(math.sin(2 * math.pi * freq * tone * t) * weight
-                           for freq, weight in [(730, 0.15), (1730, 0.10), (3190, 0.04)])
+                           for freq, weight in [(730, 0.07), (1730, 0.12), (3190, 0.08)])
             low_knock = 0.35 * math.sin(2 * math.pi * 185 * tone * t) * math.exp(-t / 0.012)
-            samples[i] += gain * envelope * (smooth_noise * 0.75 + metallic + low_knock)
+            samples[i] += gain * envelope * (smooth_noise * 0.50 + (noise-smooth_noise)*0.20 + metallic + low_knock)
     # A quieter scrape between contacts adds movement without a constant hiss.
     if event == "remove":
         last = 0.0

@@ -1,55 +1,55 @@
 {
   "deagle_0.wav": {
     "peak": 0.65,
-    "seconds": 0.42
+    "seconds": 0.24
   },
   "deagle_1.wav": {
     "peak": 0.65,
-    "seconds": 0.42
+    "seconds": 0.24
   },
   "deagle_2.wav": {
     "peak": 0.65,
-    "seconds": 0.42
+    "seconds": 0.24
   },
   "ak47_0.wav": {
     "peak": 0.65,
-    "seconds": 0.24
+    "seconds": 0.15
   },
   "ak47_1.wav": {
     "peak": 0.65,
-    "seconds": 0.24
+    "seconds": 0.15
   },
   "ak47_2.wav": {
     "peak": 0.65,
-    "seconds": 0.24
+    "seconds": 0.15
   },
   "m4a1_0.wav": {
     "peak": 0.65,
-    "seconds": 0.16
+    "seconds": 0.11
   },
   "m4a1_1.wav": {
     "peak": 0.65,
-    "seconds": 0.16
+    "seconds": 0.11
   },
   "m4a1_2.wav": {
     "peak": 0.65,
-    "seconds": 0.16
+    "seconds": 0.11
   },
   "hard_0.wav": {
     "peak": 0.65,
-    "seconds": 0.16
+    "seconds": 0.18
   },
   "hard_1.wav": {
     "peak": 0.65,
-    "seconds": 0.16
+    "seconds": 0.18
   },
   "hard_2.wav": {
     "peak": 0.65,
-    "seconds": 0.16
+    "seconds": 0.18
   },
   "hard_3.wav": {
     "peak": 0.65,
-    "seconds": 0.16
+    "seconds": 0.18
   },
   "wood_0.wav": {
     "peak": 0.65,
@@ -82,5 +82,29 @@
   "land_3.wav": {
     "peak": 0.65,
     "seconds": 0.24
+  },
+  "head_0.wav": {
+    "peak": 0.65,
+    "seconds": 0.15
+  },
+  "head_1.wav": {
+    "peak": 0.65,
+    "seconds": 0.15
+  },
+  "head_2.wav": {
+    "peak": 0.65,
+    "seconds": 0.15
+  },
+  "body_0.wav": {
+    "peak": 0.65,
+    "seconds": 0.13
+  },
+  "body_1.wav": {
+    "peak": 0.65,
+    "seconds": 0.13
+  },
+  "body_2.wav": {
+    "peak": 0.65,
+    "seconds": 0.13
   }
 }

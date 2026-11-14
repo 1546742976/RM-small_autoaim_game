@@ -187,6 +187,7 @@ func audio_checks() -> void:
 	game.resume_game()
 	await frames(2)
 	check(not sound.voice.stream_paused,"resume releases playback pause")
+	check(game.combat_sound("head").data != game.combat_sound("body").data,"head and body use distinct impact Foley")
 	var shot_state: int=game.shot_rng.state
 	var fingerprints: Array=[]
 	for id in ["deagle","ak47","m4a1"]:
@@ -232,6 +233,15 @@ func audio_demo() -> void:
 				game.projectiles.advance(1.0/120)
 				await get_tree().physics_frame
 		await capture("gun-"+id)
+		for empty in [false,true]:
+			game.weapon.mag=0 if empty else 2
+			game.weapon.reserve=90
+			check(game.weapon.start_reload(),"demo reload starts")
+			while game.weapon.is_reloading():
+				game.weapon.advance_ms(1000.0/60)
+				game.player.update_reload(game.weapon.reload_left_ms,game.weapon.get_data().reload_ms,game.weapon.reload_kind,game.weapon.reload_serial)
+				await get_tree().physics_frame
+
 		await get_tree().create_timer(0.6).timeout
 	await prepare("assessment_yard")
 	game.player.reset_position(Vector3(8,0.02,34))

@@ -140,6 +140,7 @@ func _reset_player() -> void:
 func _stop_play() -> void:
 	projectiles.clear()
 	player.footsteps.reset()
+	if is_instance_valid(hit_sound): hit_sound.stop()
 	for voice in shot_voices: voice.stop()
 	settling=false
 	if is_instance_valid(duel): duel.stop()
@@ -348,6 +349,7 @@ func _on_projectile_impact(origin: Vector3,direction: Vector3,result: Dictionary
 				kills += 1
 				if headshot: headshots += 1
 			ui.show_hit(headshot,hit_result.killed)
+			hit_sound.stream = combat_sound("head" if headshot else "body")
 			hit_sound.play()
 	shot_resolved.emit(origin,direction,result)
 	score_changed.emit()
@@ -397,28 +399,11 @@ func _setup_audio() -> void:
 		shot_voices.append(voice)
 	hit_sound = AudioStreamPlayer.new()
 	hit_sound.volume_db = -22
+	hit_sound.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(hit_sound)
 	for id in ["deagle", "ak47", "m4a1"]:
 		sounds[id] = load("res://assets/audio/combat/%s_0.wav"%id)
-	hit_sound.stream = _tone(1300.0, 0.065, false)
-
-func _tone(frequency: float, duration: float, noise: bool) -> AudioStreamWAV:
-	var stream := AudioStreamWAV.new()
-	stream.format = AudioStreamWAV.FORMAT_16_BITS
-	stream.mix_rate = 22050
-	var count := int(duration * stream.mix_rate)
-	var bytes := PackedByteArray()
-	bytes.resize(count * 2)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 42
-	for i in count:
-		var envelope: float = pow(1.0 - float(i) / count, 3.0)
-		var sample: float = sin(TAU * frequency * float(i) / stream.mix_rate)
-		if noise:
-			sample = sample * 0.3 + rng.randf_range(-0.7, 0.7)
-		bytes.encode_s16(i * 2, int(sample * envelope * 24000))
-	stream.data = bytes
-	return stream
+	hit_sound.stream = load("res://assets/audio/combat/body_0.wav")
 
 func combat_sound(id: String) -> AudioStream:
 	return load("res://assets/audio/combat/%s_%d.wav"%[id,audio_rng.randi_range(0,2)])
