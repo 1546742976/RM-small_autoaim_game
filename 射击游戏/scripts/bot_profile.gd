@@ -1,20 +1,23 @@
 extends RefCounted
 ## Expert tuning and deterministic interception, independent of presentation.
-const SPEED := 4.5
-const BRAKE := 48.0
-const REACTION := 0.18
+const SPEED := 6.0
+const BRAKE := 240.0
+const REACTION := 0.03
 const LOST_SIGHT := 0.15
-const BODY_TURN := TAU
+const BODY_TURN := TAU*4.0
 const AIM_TURN := PI*3.0
 const ERROR := 0.0
-const BURST_PAUSE := 0.15
+const BURST_PAUSE := 0.0
+const PROJECTILE_SPEED := 150.0
+const SHOT_INTERVAL_MS := 70
+const RELOAD_MS := 650
 const JUMP_SPEED := 6.3
 const GRAVITY := 20.0
 const JUMP_COOLDOWN := 3.0
 
-static func intercept(origin: Vector3, head: Vector3, movement: Vector3, airborne: bool, floor_head: float) -> Vector3:
+static func intercept(origin: Vector3, head: Vector3, movement: Vector3, airborne: bool, floor_head: float, projectile_speed := 25.0) -> Vector3:
 	var relative := head-origin
-	var a := movement.length_squared()-625.0
+	var a := movement.length_squared()-projectile_speed*projectile_speed
 	var b := 2.0*relative.dot(movement)
 	var c := relative.length_squared()
 	var t := -1.0
@@ -35,5 +38,5 @@ static func intercept(origin: Vector3, head: Vector3, movement: Vector3, airborn
 		for i in 4:
 			point=head+movement*t
 			point.y=maxf(floor_head,point.y-0.5*GRAVITY*t*t)
-			t=minf(origin.distance_to(point)/25.0,1.2)
+			t=minf(origin.distance_to(point)/projectile_speed,1.2)
 	return point

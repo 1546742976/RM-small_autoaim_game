@@ -308,7 +308,7 @@ func yard_test() -> void:
 	await frames()
 	bot.active=true
 	bot.aim_direction=Vector3.RIGHT
-	for k in 10:
+	for k in 2:
 		await get_tree().physics_frame
 		bot.step(1.0/120)
 	check(bot.shot_count==0,"bot retains reaction delay")

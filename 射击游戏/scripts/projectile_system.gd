@@ -21,7 +21,7 @@ func _ready() -> void:
 	material.emission_energy_multiplier=2.0
 	ball_mesh.material=material
 
-func spawn(origin: Vector3, direction: Vector3, owner_id: String) -> Dictionary:
+func spawn(origin: Vector3, direction: Vector3, owner_id: String, speed: float=SPEED) -> Dictionary:
 	var area:=Area3D.new()
 	area.name="Projectile"
 	area.collision_layer=32
@@ -55,7 +55,7 @@ func spawn(origin: Vector3, direction: Vector3, owner_id: String) -> Dictionary:
 	trail.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(trail)
 	trail.hide()
-	var bullet: Dictionary={"area":area,"ball":ball,"sweep":sweep,"trail":trail,"origin":origin,"direction":direction.normalized(),"owner":owner_id,"age":0.0,"distance":0.0,"live":true,"fade":0.08,"overlap":null}
+	var bullet: Dictionary={"area":area,"ball":ball,"sweep":sweep,"trail":trail,"origin":origin,"direction":direction.normalized(),"owner":owner_id,"speed":speed,"age":0.0,"distance":0.0,"live":true,"fade":0.08,"overlap":null}
 	area.area_entered.connect(func(other: Area3D):
 		if bullet.live: bullet.overlap=other)
 	area.body_entered.connect(func(other: Node3D):
@@ -70,7 +70,7 @@ func advance(delta: float) -> void:
 			if bullet.fade<=0: _remove(bullet)
 			else: bullet.trail.scale=Vector3.ONE*(bullet.fade/0.08)
 			continue
-		var motion: Vector3=bullet.direction*minf(SPEED*delta,MAX_DISTANCE-bullet.distance)
+		var motion: Vector3=bullet.direction*minf(bullet.speed*delta,MAX_DISTANCE-bullet.distance)
 		var sweep: ShapeCast3D=bullet.sweep
 		# Cast motion alone may miss a shape the muzzle already overlaps.
 		sweep.target_position=Vector3.ZERO
@@ -97,7 +97,7 @@ func advance(delta: float) -> void:
 		bullet.distance+=motion.length()*fraction
 		bullet.age+=delta
 		_update_trail(bullet)
-		if not result.is_empty() or bullet.age>=LIFETIME or bullet.distance>=MAX_DISTANCE-0.00001:
+		if not result.is_empty() or bullet.age>=MAX_DISTANCE/bullet.speed or bullet.distance>=MAX_DISTANCE-0.00001:
 			bullet.live=false
 			bullet.ball.hide()
 			bullet.area.collision_layer=0

@@ -6,7 +6,7 @@ var navigation_only := false
 var navigation_destination := Vector3.ZERO
 var shot_log: Array[Dictionary]=[]
 const Target=preload("res://scripts/training_target.gd")
-const Weapon=preload("res://scripts/weapon_controller.gd")
+const Weapon=preload("res://scripts/bot_weapon.gd")
 var game: Node3D
 var layout: RefCounted
 var target: Node3D
@@ -117,7 +117,7 @@ func _new_patrol() -> void:
 func can_see(point: Vector3) -> bool:
 	var eye:=global_position+Vector3(0,1.65,0)
 	var offset:=point-eye
-	if offset.length()>45: return false
+	if offset.length()>80: return false
 	if -global_basis.z.dot(offset.normalized())<cos(deg_to_rad(60)): return false
 	var query:=PhysicsRayQueryParameters3D.create(eye,point,1|16)
 	query.collide_with_areas=true
@@ -178,13 +178,13 @@ func step(delta: float) -> void:
 	if not game.player.is_on_floor():
 		var floor_hit:=get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(last_seen,last_seen-Vector3.UP*20,1))
 		if not floor_hit.is_empty(): floor_head=floor_hit.position.y+1.65
-	var prediction: Vector3=Profile.intercept(muzzle,head,game.player.get_real_velocity(),not game.player.is_on_floor(),floor_head)
+	var prediction: Vector3=Profile.intercept(muzzle,head,game.player.get_real_velocity(),not game.player.is_on_floor(),floor_head,Profile.PROJECTILE_SPEED)
 	var desired_aim: Vector3=(prediction-muzzle).normalized()
 	aim_direction=desired_aim
 	if visible_player and not weapon.is_reloading():
 		gun.look_at(gun.global_position+aim_direction,Vector3.UP)
 		muzzle=gun.global_transform*Vector3(0,0.1975,-0.8215)
-		prediction=Profile.intercept(muzzle,head,game.player.get_real_velocity(),not game.player.is_on_floor(),floor_head)
+		prediction=Profile.intercept(muzzle,head,game.player.get_real_velocity(),not game.player.is_on_floor(),floor_head,Profile.PROJECTILE_SPEED)
 		aim_direction=(prediction-muzzle).normalized()
 	var real:=get_real_velocity()
 	var stopped:=Vector2(real.x,real.z).length()/Profile.SPEED<0.34
@@ -204,7 +204,7 @@ func step(delta: float) -> void:
 
 func _fire() -> void:
 	shot_count+=1
-	if "--bot-checks" in OS.get_cmdline_user_args() or "--lock-checks" in OS.get_cmdline_user_args(): shot_log.append({"time":clock,"position":global_position,"grounded":is_on_floor(),"reaction":reaction,"speed":Vector2(get_real_velocity().x,get_real_velocity().z).length(),"direction":aim_direction})
+	if "--extreme-checks" in OS.get_cmdline_user_args() or "--bot-checks" in OS.get_cmdline_user_args() or "--lock-checks" in OS.get_cmdline_user_args(): shot_log.append({"time":clock,"position":global_position,"grounded":is_on_floor(),"reaction":reaction,"speed":Vector2(get_real_velocity().x,get_real_velocity().z).length(),"direction":aim_direction})
 	var origin: Vector3=gun.global_transform*Vector3(0,0.1975,-0.8215)
 	var eye:=global_position+Vector3(0,1.65,0)
 	var guard:=PhysicsRayQueryParameters3D.create(eye,origin,17)
@@ -212,7 +212,7 @@ func _fire() -> void:
 	var obstruction:=get_world_3d().direct_space_state.intersect_ray(guard)
 	if not obstruction.is_empty(): origin=obstruction.position+(eye-origin).normalized()*0.011
 	var direction: Vector3=aim_direction
-	game.projectiles.spawn(origin,direction,"bot")
+	game.projectiles.spawn(origin,direction,"bot",Profile.PROJECTILE_SPEED)
 	flash_left=0.065
 	var voice: AudioStreamPlayer3D=shot_voices[sound_index]
 	sound_index=(sound_index+1)%shot_voices.size()
@@ -224,7 +224,7 @@ func pose(delta: float) -> void:
 	flash.visible=flash_left>0
 	target._visuals.moving=Vector2(velocity.x,velocity.z).length()>0.2
 	target._visuals.sample(clock,-1)
-	var reload_p: float=1.0-weapon.reload_left_ms/2500.0 if weapon.is_reloading() else 0.0
+	var reload_p: float=1.0-weapon.reload_left_ms/float(weapon.get_data().reload_ms) if weapon.is_reloading() else 0.0
 	gun.rotation=Vector3(0,0,sin(reload_p*PI)*0.3)
 	if visible_player and not weapon.is_reloading(): gun.look_at(gun.global_position+aim_direction,Vector3.UP)
 	if magazine:

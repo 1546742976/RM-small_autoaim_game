@@ -207,8 +207,8 @@ func compare_bots() -> void:
 				times.append(elapsed_time)
 				if mode=="expert":
 					for shot in bot.shot_log:
-						check(shot.grounded and shot.reaction>=.18,"expert shot respects grounding/reaction")
-					for i in range(1,bot.shot_log.size()): check(bot.shot_log[i].time-bot.shot_log[i-1].time>=.0999,"expert respects AK cooldown")
+						check(shot.grounded and shot.reaction>=Profile.REACTION,"expert shot respects grounding/reaction")
+					for i in range(1,bot.shot_log.size()): check(bot.shot_log[i].time-bot.shot_log[i-1].time>=Profile.SHOT_INTERVAL_MS/1000.0-.0001,"expert respects AK cooldown")
 			times.sort()
 			comparison.append({"mode":mode,"movement":movement,"trials":30,"kills":kills,"median_seconds_capped_at_8":(times[14]+times[15])*.5})
 			print("BOT COMPARE ",comparison[-1])

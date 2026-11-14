@@ -79,7 +79,11 @@ func _ready() -> void:
 		if not control_bridge.configure(self):
 			get_tree().quit(1)
 			return
-	if "--lock-checks" in OS.get_cmdline_user_args():
+	if "--extreme-checks" in OS.get_cmdline_user_args():
+		var checks=load("res://tests/extreme_checks.gd").new()
+		add_child(checks)
+		checks.call_deferred("run",self)
+	elif "--lock-checks" in OS.get_cmdline_user_args():
 		var checks=load("res://tests/lock_checks.gd").new()
 		add_child(checks)
 		checks.call_deferred("run",self)
@@ -379,7 +383,7 @@ func resume_game() -> void:
 	else: ui.hide_overlay()
 
 func _notification(what: int) -> void:
-	for flag in ["--lock-checks","--bot-checks","--radar-checks","--projectile-checks","--projectile-demo","--projectile-benchmark","--assessment-checks","--assessment-demo","--assessment-benchmark"]:
+	for flag in ["--extreme-checks","--lock-checks","--bot-checks","--radar-checks","--projectile-checks","--projectile-demo","--projectile-benchmark","--assessment-checks","--assessment-demo","--assessment-benchmark"]:
 		if flag in OS.get_cmdline_user_args(): return
 	if is_instance_valid(player) and player.remote_controlled: return
 	for flag in ["--smoke-test","--showcase","--benchmark","--previews","--spread-demo","--control-smoke","--control-fixture","--input-checks","--viewmodel-checks","--reload-showcase","--viewmodel-benchmark"]:
