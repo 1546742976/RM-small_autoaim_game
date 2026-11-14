@@ -1,0 +1,309 @@
+{
+  "ak47.glb": {
+    "bytes": 16610444,
+    "sha256": "69619913ef898cf11d7df9ec4b20019c53a4785f376c07f63b324c1fc275e8bf",
+    "triangles": 107696,
+    "animations": [],
+    "textures": [
+      {
+        "name": "AK47WornBoltSteel_Normal_2K",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "ak47_blued_metal_base_color",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "ak47_blued_metal_roughness",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "AK47PhosphateSteel_Normal_2K",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "AK47LaminatedWoodPBR_Normal_2K",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "ak47_laminated_wood_base_color",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "ak47_laminated_wood_roughness",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "AK47BluedReceiverSteel_Normal_2K",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "Image_2",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "Image_1",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "Image_0",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "AK47BakeliteMagazine_Normal_2K",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "ak47_bakelite_polymer_base_color",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "ak47_bakelite_polymer_roughness",
+        "size": [
+          2048,
+          2048
+        ]
+      }
+    ]
+  },
+  "deagle.glb": {
+    "bytes": 19974724,
+    "sha256": "d6844984806c021805385b44ea9baf4f521fa26669c1e6e29b099a05fb2fe257",
+    "triangles": 26505,
+    "animations": [],
+    "textures": [
+      {
+        "name": "Image_5",
+        "size": [
+          1024,
+          1024
+        ]
+      },
+      {
+        "name": "Image_3",
+        "size": [
+          1024,
+          1024
+        ]
+      },
+      {
+        "name": "Image_4",
+        "size": [
+          1024,
+          1024
+        ]
+      },
+      {
+        "name": "Image_2",
+        "size": [
+          1024,
+          1024
+        ]
+      },
+      {
+        "name": "Image_0",
+        "size": [
+          1024,
+          1024
+        ]
+      },
+      {
+        "name": "Image_1",
+        "size": [
+          1024,
+          1024
+        ]
+      },
+      {
+        "name": "Image_2",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "Image_1",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "Image_0",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "Image_8",
+        "size": [
+          1024,
+          1024
+        ]
+      },
+      {
+        "name": "Image_6",
+        "size": [
+          1024,
+          1024
+        ]
+      },
+      {
+        "name": "Image_7",
+        "size": [
+          1024,
+          1024
+        ]
+      }
+    ]
+  },
+  "m4a1.glb": {
+    "bytes": 14706612,
+    "sha256": "6a56a0c28767ad5ac773a0d4d47219f5fcc7b8886f01dd9560ae1bdbd8c96b3e",
+    "triangles": 23048,
+    "animations": [],
+    "textures": [
+      {
+        "name": "M4A1_Normal",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "M4A1_Base_Color",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "M4A1_Metallic-M4A1_Roughness",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "Image_2",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "Image_1",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "Image_0",
+        "size": [
+          2048,
+          2048
+        ]
+      }
+    ]
+  },
+  "reload_arms.glb": {
+    "bytes": 9612516,
+    "sha256": "6f661c49cc60977d6584caa4c604d286e94af359eac847afd69131c7e5d7ef11",
+    "triangles": 11010,
+    "animations": [
+      "reload_ak74_empty",
+      "reload_desert_eagle_empty",
+      "reload_m4a1_empty"
+    ],
+    "textures": [
+      {
+        "name": "Image_2",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "Image_1",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "Image_0",
+        "size": [
+          2048,
+          2048
+        ]
+      }
+    ]
+  },
+  "trainee.glb": {
+    "bytes": 5270624,
+    "sha256": "754bfb1a8a9b5e206d8a39b0c0607766a631fa1ac9853b2aa038914378f5251c",
+    "triangles": 8784,
+    "animations": [
+      "death",
+      "idle",
+      "sidestep"
+    ],
+    "textures": [
+      {
+        "name": "BaldMan_Default_Normal",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "BaldMan_Default_AlbedoTransparency",
+        "size": [
+          2048,
+          2048
+        ]
+      }
+    ]
+  }
+}

@@ -36,13 +36,14 @@ try {
             throw "Inspect artifacts/$log before shipping."
         }
     }
-    Copy-Item -LiteralPath (Join-Path $repoRoot 'README.md'), (Join-Path $repoRoot 'LICENSE') -Destination $releasePath -Force
+    Copy-Item -LiteralPath (Join-Path $repoRoot 'README.md'), (Join-Path $repoRoot 'ASSET_MANIFEST.md'), (Join-Path $repoRoot 'VALIDATION.md'), (Join-Path $repoRoot 'LICENSE') -Destination $releasePath -Force
     $licensesPath = Join-Path $releasePath 'licenses'
     New-Item -ItemType Directory -Force -Path $licensesPath | Out-Null
     Copy-Item -LiteralPath "$projectPath/assets/fonts/OFL.txt", "$projectPath/assets/fonts/NOTICE.txt" -Destination $licensesPath -Force
     if (Test-Path -LiteralPath (Join-Path $repoRoot 'THIRD_PARTY_NOTICES.md')) {
         Copy-Item -LiteralPath (Join-Path $repoRoot 'THIRD_PARTY_NOTICES.md') -Destination $licensesPath -Force
     }
+    Copy-Item -Path "$projectPath/assets/licenses/*" -Destination $licensesPath -Force
     Write-Host "Windows game: $releasePath\RMPrecisionLab.exe"
 } finally {
     foreach ($key in $oldEnvironment.Keys) {

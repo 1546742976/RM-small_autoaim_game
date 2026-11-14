@@ -1,7 +1,7 @@
 extends CanvasLayer
 
 signal start_requested
-signal purchase_requested(weapon_id: String, armor: bool)
+signal purchase_requested(weapon_id: String)
 signal shop_closed
 signal resume_requested
 signal menu_requested
@@ -35,7 +35,6 @@ var speed_bar: ProgressBar
 var shop_money: Label
 var shop_countdown: Label
 var shop_confirm: Button
-var shop_armor: CheckBox
 var weapon_buttons: Dictionary = {}
 var selected_weapon := "deagle"
 var shop_locked := false
@@ -150,7 +149,7 @@ func _build_hud() -> void:
 	right.add_child(right_column)
 	ammo = _label("沙鹰   07 / 14", 24)
 	right_column.add_child(ammo)
-	vitals = _label("生命 100     护甲 0", 18, MUTED)
+	vitals = _label("生命 100", 18, MUTED)
 	right_column.add_child(vitals)
 	instructions = _label("WASD 移动 · 左键单发 · R 换弹 · Esc 暂停", 16, MUTED)
 	hud.add_child(instructions)
@@ -221,7 +220,7 @@ func show_menu() -> void:
 	column.add_child(_button("退出游戏", func(): quit_requested.emit()))
 	column.add_child(_label("WASD 移动   /   鼠标瞄准   /   左键单发   /   R 换弹   /   Esc 暂停", 16, MUTED))
 
-func show_buy(locked: bool, weapon_id: String, armor_value: int, money: int) -> void:
+func show_buy(locked: bool, weapon_id: String, money: int) -> void:
 	hud.show()
 	shop_locked = locked
 	selected_weapon = weapon_id
@@ -236,26 +235,19 @@ func show_buy(locked: bool, weapon_id: String, armor_value: int, money: int) -> 
 	for id in ["deagle", "ak47", "m4a1"]:
 		var data: Dictionary = Rules.WEAPONS[id]
 		var cost: String = "默认免费" if id == "deagle" else "$%d" % data.price
-		var button := _button("%s\n%s\n%d 发 / %d ms\n躯干伤害 %d" % [data.name, cost, data.mag_size, data.interval_ms, data.damage], _select_weapon.bind(id))
+		var button := _button("%s\n%s\n%d 发 / %d ms\n仅爆头可击杀" % [data.name, cost, data.mag_size, data.interval_ms], _select_weapon.bind(id))
 		button.custom_minimum_size = Vector2(266, 150)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.disabled = locked
 		row.add_child(button)
 		weapon_buttons[id] = button
-	shop_armor = CheckBox.new()
-	shop_armor.text = "购买护甲  +100 耐久 / $1000（先扣护甲，再扣生命）"
-	shop_armor.button_pressed = armor_value > 0
-	shop_armor.disabled = locked
-	shop_armor.custom_minimum_size.y = 42
-	shop_armor.toggled.connect(func(_value): _update_purchase_preview())
-	column.add_child(shop_armor)
 	shop_money = _label("", 20, AMBER)
 	column.add_child(shop_money)
-	shop_confirm = _button("确认装备并进入场地", func(): purchase_requested.emit(selected_weapon, shop_armor.button_pressed))
+	shop_confirm = _button("确认装备并进入场地", func(): purchase_requested.emit(selected_weapon))
 	shop_confirm.disabled = locked
 	column.add_child(shop_confirm)
 	column.add_child(_button("返回场地  ·  B 可重新查看装备", func(): shop_closed.emit()))
-	column.add_child(_label("每回合只能确认一次。未确认则保留免费沙鹰。\n左侧装置：靠近后按 E 测试护甲；准备阶段不能开火。", 16, MUTED))
+	column.add_child(_label("每回合只能确认一次。未确认则保留免费沙鹰。\n只有爆头才能击杀；准备阶段不能开火。", 16, MUTED))
 	_update_purchase_preview()
 	if locked:
 		shop_money.text = "装备已确认  /  剩余资金 $%d" % money
@@ -269,8 +261,6 @@ func _update_purchase_preview() -> void:
 		weapon_buttons[id].modulate = ACCENT if id == selected_weapon else Color.WHITE
 	if not shop_locked:
 		var price: int = 0 if selected_weapon == "deagle" else Rules.WEAPONS[selected_weapon].price
-		if shop_armor.button_pressed:
-			price += 1000
 		shop_money.text = "本次支出 $%d  /  剩余资金 $%d" % [price, 5000 - price]
 
 func hide_overlay() -> void:
@@ -305,13 +295,13 @@ func update_status(data: Dictionary) -> void:
 	clock_label.text = "%04.1f s" % maxf(0.0, data.remaining)
 	scores.text = "击杀  %d     命中率  %.1f%%" % [data.kills, data.accuracy]
 	ammo.text = "%s  %02d / %02d" % [data.weapon, data.mag, data.reserve]
-	vitals.text = "生命 %d     护甲 %d" % [data.hp, data.armor]
+	vitals.text = "生命 %d" % data.hp
 	velocity_label.text = "速度比  %.3f / 0.340" % data.speed
 	speed_bar.value = data.speed
 	permit_label.text = data.permission
 	permit_label.add_theme_color_override("font_color", ACCENT if data.ready else AMBER)
 	crosshair.add_theme_color_override("font_color", ACCENT if data.ready else AMBER)
-	instructions.text = "WASD 移动 · B 装备 · E 测试装置 · Esc 暂停" if data.phase == "buy" else "WASD 移动 · 左键单发 · R 换弹 · Esc 暂停"
+	instructions.text = "WASD 移动 · B 装备 · Esc 暂停" if data.phase == "buy" else "WASD 移动 · 左键单发 · R 换弹 · Esc 暂停"
 
 func notify(message: String, duration: float = 2.0) -> void:
 	toast.text = message
@@ -323,7 +313,9 @@ func show_hit(headshot: bool, killed: bool) -> void:
 	hit_marker.show()
 	marker_left = 0.18
 	if killed:
-		notify("爆头击杀" if headshot else "靶子击倒", 0.8)
+		notify("爆头击杀", 0.8)
+	else:
+		notify("非头部命中 · 无伤害", 0.6)
 
 func _process(delta: float) -> void:
 	if get_tree().paused:

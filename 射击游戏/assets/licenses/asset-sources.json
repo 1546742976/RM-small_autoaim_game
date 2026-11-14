@@ -1,0 +1,68 @@
+[
+  {
+    "file": "elizion_desert_eagle_desert_eagle.glb",
+    "url": "https://raw.githubusercontent.com/AetherRadar/operation-steel-tide/main/assets/models/elizion_desert_eagle/desert_eagle.glb",
+    "bytes": 11502692,
+    "sha256": "87b22c44a9b58d0a3aaee72232480de35008d95534f11ad84c8ae9a2cf4f9063"
+  },
+  {
+    "file": "elizion_desert_eagle_LICENSE.md",
+    "url": "https://raw.githubusercontent.com/AetherRadar/operation-steel-tide/main/assets/models/elizion_desert_eagle/LICENSE.md",
+    "bytes": 882,
+    "sha256": "569d8dfc8020b38b68d2828c9ce6fcb6d6d1d41ac0eb2f70cdcb5bf1f22f5620"
+  },
+  {
+    "file": "djmaesen_smg45_animated_reload_arms.glb",
+    "url": "https://raw.githubusercontent.com/AetherRadar/operation-steel-tide/main/assets/models/djmaesen_smg45/animated_reload_arms.glb",
+    "bytes": 10711916,
+    "sha256": "5982868cfcd1aaab0671dbb9587ce8a6a9ee167041f56bd01db6ba1f2db66836"
+  },
+  {
+    "file": "djmaesen_smg45_smg45_pistol_large_arms.glb",
+    "url": "https://raw.githubusercontent.com/AetherRadar/operation-steel-tide/main/assets/models/djmaesen_smg45/smg45_pistol_large_arms.glb",
+    "bytes": 9450016,
+    "sha256": "04124190785c5c28288f719b3aaf0f09105a6eeed1754648d8ea63966a972a4c"
+  },
+  {
+    "file": "djmaesen_smg45_smg45_rifle_arms.glb",
+    "url": "https://raw.githubusercontent.com/AetherRadar/operation-steel-tide/main/assets/models/djmaesen_smg45/smg45_rifle_arms.glb",
+    "bytes": 9450000,
+    "sha256": "c0c35c39e91905fc05c2559727eb5a3118b302d0646edda5da258f438bddbe0f"
+  },
+  {
+    "file": "djmaesen_smg45_LICENSE.md",
+    "url": "https://raw.githubusercontent.com/AetherRadar/operation-steel-tide/main/assets/models/djmaesen_smg45/LICENSE.md",
+    "bytes": 12570,
+    "sha256": "9df6d10a0b84a472efe323be992712bf224a9fb621d62053687ef291be8b930e"
+  },
+  {
+    "file": "steel_tide_m4a1_steel_tide_m4a1.glb",
+    "url": "https://raw.githubusercontent.com/AetherRadar/operation-steel-tide/main/assets/models/steel_tide_m4a1/steel_tide_m4a1.glb",
+    "bytes": 5302740,
+    "sha256": "3c0fe733d6e298c94be66accb5ab579317eeb027e349af60f95c618610c0811c"
+  },
+  {
+    "file": "steel_tide_m4a1_LICENSE.md",
+    "url": "https://raw.githubusercontent.com/AetherRadar/operation-steel-tide/main/assets/models/steel_tide_m4a1/LICENSE.md",
+    "bytes": 8229,
+    "sha256": "80f451343dc3bf7b3d246b2db51032a83678815a2793fa24bc290e21382f846b"
+  },
+  {
+    "file": "steel_tide_ak74_ak47_reloadable_fp.glb",
+    "url": "https://raw.githubusercontent.com/AetherRadar/operation-steel-tide/main/assets/models/steel_tide_ak74/ak47_reloadable_fp.glb",
+    "bytes": 3604612,
+    "sha256": "54d719c39b30963b5e52294e8601ee203f1eab607ba7e4da0ad70c6da43406e2"
+  },
+  {
+    "file": "steel_tide_ak74_LICENSE.md",
+    "url": "https://raw.githubusercontent.com/AetherRadar/operation-steel-tide/main/assets/models/steel_tide_ak74/LICENSE.md",
+    "bytes": 6270,
+    "sha256": "2732d0d34c18bc4eb83248d9dff1226cac1892a0a0f682d3027d349fba08a959"
+  },
+  {
+    "file": "baldman.zip",
+    "url": "https://opengameart.org/sites/default/files/baldman_painted_rigged.zip",
+    "bytes": 7086650,
+    "sha256": "7441f2d10387ad1e178a49c7607bb35140abd836cf284d5f0290f489b1b3e52a"
+  }
+]

@@ -4,7 +4,7 @@ extends Node
 
 const Rules = preload("res://scripts/game_rules.gd")
 
-signal fired(damage: int)
+signal fired
 signal changed
 signal depleted
 
@@ -85,7 +85,7 @@ func try_fire(speed_ratio: float) -> String:
 		return error
 	mag -= 1
 	last_fire_ms = time_ms
-	fired.emit(int(get_data().damage))
+	fired.emit()
 	# Hit/kill callbacks have now completed, including the very last bullet.
 	changed.emit()
 	if mag == 0:

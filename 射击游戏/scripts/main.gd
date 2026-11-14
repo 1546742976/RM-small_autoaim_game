@@ -17,7 +17,6 @@ var phase := "menu"
 var remaining := 0.0
 var money := 5000
 var hp := 100
-var armor := 0
 var bought := false
 var shots := 0
 var hits := 0
@@ -61,9 +60,13 @@ func _ready() -> void:
 		var smoke = load("res://tests/game_smoke.gd").new()
 		add_child(smoke)
 		smoke.call_deferred("run", self)
+	elif "--showcase" in OS.get_cmdline_user_args() or "--benchmark" in OS.get_cmdline_user_args():
+		var presentation = load("res://tests/presentation_capture.gd").new()
+		add_child(presentation)
+		presentation.call_deferred("run", self)
 
 func _setup_inputs() -> void:
-	var bindings := {"move_forward": KEY_W, "move_back": KEY_S, "move_left": KEY_A, "move_right": KEY_D, "reload": KEY_R, "shop": KEY_B, "interact": KEY_E}
+	var bindings := {"move_forward": KEY_W, "move_back": KEY_S, "move_left": KEY_A, "move_right": KEY_D, "reload": KEY_R, "shop": KEY_B}
 	for action in bindings:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
@@ -89,7 +92,6 @@ func start_round() -> void:
 	remaining = 15.0
 	money = 5000
 	hp = 100
-	armor = 0
 	bought = false
 	shots = 0
 	hits = 0
@@ -106,20 +108,19 @@ func start_round() -> void:
 	_update_hud()
 	phase_changed.emit(phase)
 
-func confirm_purchase(weapon_id: String, wants_armor: bool) -> void:
+func confirm_purchase(weapon_id: String) -> void:
 	if phase != "buy" or get_tree().paused:
 		return
-	var result: Dictionary = Rules.purchase(weapon_id, wants_armor, money, bought)
+	var result: Dictionary = Rules.purchase(weapon_id, money, bought)
 	if not result.ok:
 		ui.notify("装备已确认，本轮不能再次购买。")
 		return
 	money = result.money
-	armor = result.armor
 	bought = true
 	weapon.reset(result.weapon)
 	player.set_weapon(result.weapon)
 	close_shop()
-	ui.notify("装备已确认 · 剩余 $%d · 左侧装置可测试护甲" % money, 3.0)
+	ui.notify("装备已确认 · 剩余 $%d" % money, 3.0)
 
 func open_shop() -> void:
 	if phase != "buy":
@@ -127,7 +128,7 @@ func open_shop() -> void:
 	player.active = false
 	pending_shots = 0
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	ui.show_buy(bought, weapon.current_weapon, armor, money)
+	ui.show_buy(bought, weapon.current_weapon, money)
 
 func close_shop() -> void:
 	ui.hide_overlay()
@@ -138,7 +139,6 @@ func begin_training() -> void:
 	phase = "training"
 	remaining = 60.0
 	hp = 100
-	armor = 100 if armor > 0 else 0
 	shots = 0
 	hits = 0
 	kills = 0
@@ -162,6 +162,7 @@ func finish_round(reason: String) -> void:
 	pending_shots = 0
 	weapon.active = false
 	player.active = false
+	player.update_reload(0.0, 1.0)
 	arena.set_active(false)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	ui.show_results({"reason": reason, "kills": kills, "shots": shots, "hits": hits, "headshots": headshots, "accuracy": accuracy(), "headshot_rate": headshot_rate(), "weapon": weapon.get_data().name})
@@ -192,8 +193,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			open_shop()
 	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
-	if event.is_action_pressed("interact") and phase == "buy":
-		test_armor()
 	if event.is_action_pressed("reload") and phase == "training":
 		if weapon.start_reload():
 			ui.notify("换弹中 · 可以继续移动", 1.0)
@@ -226,6 +225,7 @@ func _physics_process(delta: float) -> void:
 				var error: String = weapon.try_fire(player.get_speed_ratio())
 				if not error.is_empty():
 					ui.notify(_fire_error(error), 0.7)
+		player.update_reload(weapon.reload_left_ms if phase == "training" else 0.0, float(weapon.get_data().reload_ms))
 		_update_hud()
 
 func _fire_error(error: String) -> String:
@@ -236,7 +236,7 @@ func _fire_error(error: String) -> String:
 		"mag_empty", "empty": return "弹夹已空"
 	return "暂时无法开火：" + error
 
-func _on_fired(damage: int) -> void:
+func _on_fired() -> void:
 	shots += 1
 	player.play_shot()
 	shot_sound.stream = sounds[weapon.current_weapon]
@@ -252,7 +252,7 @@ func _on_fired(damage: int) -> void:
 		if collider.has_meta("target"):
 			var target: Node3D = collider.get_meta("target")
 			var headshot: bool = collider.get_meta("headshot", false)
-			var hit_result: Dictionary = target.apply_hit(damage, headshot)
+			var hit_result: Dictionary = target.apply_hit(headshot)
 			if hit_result.hit:
 				hits += 1
 				if hit_result.killed:
@@ -262,18 +262,6 @@ func _on_fired(damage: int) -> void:
 				ui.show_hit(headshot, hit_result.killed)
 				hit_sound.play()
 	score_changed.emit()
-
-func test_armor() -> void:
-	if phase != "buy":
-		return
-	if player.position.distance_to(Vector3(-8, 0, 8)) > 3.0:
-		ui.notify("靠近左侧青色测试装置后按 E", 2.0)
-		return
-	var result: Dictionary = Rules.damage_result(hp, armor, 40)
-	ui.notify("伤害测试 40：护甲 %d → %d，生命 %d → %d（已恢复）" % [armor, result.armor, hp, result.hp], 4.0)
-	# Preview the exact damage calculation, then preserve the purchased loadout.
-	hp = 100
-	armor = 100 if armor > 0 else 0
 
 func pause_game() -> void:
 	was_shop_open = ui.overlay_kind == "buy"
@@ -290,6 +278,10 @@ func resume_game() -> void:
 		close_shop()
 
 func _notification(what: int) -> void:
+	# Automated captures control their own pause points; external desktop focus
+	# must not interrupt the scripted test. Normal play still pauses on Alt-Tab.
+	for flag in ["--smoke-test", "--showcase", "--benchmark"]:
+		if flag in OS.get_cmdline_user_args():return
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_instance_valid(ui):
 		if (phase == "buy" or phase == "training") and not get_tree().paused:
 			pause_game()
@@ -313,7 +305,7 @@ func _update_hud() -> void:
 	elif weapon.mag <= 0:
 		permission = "弹夹已空"
 		ready = false
-	ui.update_status({"phase": phase, "remaining": remaining, "kills": kills, "accuracy": accuracy(), "weapon": weapon.get_data().name, "mag": weapon.mag, "reserve": weapon.reserve, "hp": hp, "armor": armor, "speed": speed, "permission": permission, "ready": ready})
+	ui.update_status({"phase": phase, "remaining": remaining, "kills": kills, "accuracy": accuracy(), "weapon": weapon.get_data().name, "mag": weapon.mag, "reserve": weapon.reserve, "hp": hp, "speed": speed, "permission": permission, "ready": ready})
 
 func _setup_audio() -> void:
 	shot_sound = AudioStreamPlayer.new()

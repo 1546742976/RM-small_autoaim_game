@@ -1,158 +1,126 @@
 extends Node3D
-## A target follows a fixed track; it never perceives, attacks, or makes decisions.
+## Fixed tracks only. Bone-following hit regions have no AI or attack behavior.
 
 const Rules = preload("res://scripts/game_rules.gd")
+const Visual = preload("res://scripts/trainee_visual.gd")
 signal hit(headshot: bool, killed: bool)
-
-var hp: int = 100
-var armor: int = 0
-var alive: bool = true
-var active: bool = false
-var moving: bool = false
-var armored: bool = false
-var target_index: int = 0
+var hp := 100
+var alive := true
+var active := false
+var moving := false
+var target_index := 0
 var _origin: Vector3
-var _time: float = 0.0
-var _respawn_left: float = 0.0
-var _flash_left: float = 0.0
+var _time := 0.0
+var _respawn_left := 0.0
 var _visuals: Node3D
-var _shapes: Array[CollisionShape3D] = []
-var _body_material: StandardMaterial3D
+var _regions: Array[Dictionary] = []
 var _label: Label3D
-var _base_color: Color
 
-
-func setup(index: int, is_moving: bool, has_armor: bool) -> void:
+func setup(index: int, is_moving: bool) -> void:
 	target_index = index
 	moving = is_moving
-	armored = has_armor
-	armor = 100 if armored else 0
-
 
 func _ready() -> void:
 	_origin = position
 	name = "Target_%02d" % (target_index + 1)
-	_base_color = Color("50d9c8") if armored else Color("f0ad65")
-	_body_material = _material(_base_color)
-	_visuals = Node3D.new()
+	_visuals = Visual.new()
+	_visuals.moving = moving
 	add_child(_visuals)
-	var steel := _material(Color("253743"))
-	_box(_visuals, Vector3(0.10, 0.44, 0.12), Vector3(0, 0.26, 0), steel)
-	_box(_visuals, Vector3(0.80, 0.06, 0.55), Vector3(0, 0.04, 0), steel)
-	_box(_visuals, Vector3(0.66, 0.96, 0.20), Vector3(0, 1.0, 0), _body_material)
-	_box(_visuals, Vector3(0.38, 0.40, 0.24), Vector3(0, 1.72, 0), _material(Color("e5edf0")))
-	# A face-center orange square makes the lethal head region readable at range.
-	_box(_visuals, Vector3(0.17, 0.14, 0.012), Vector3(0, 1.74, 0.126), _material(Color("fa805c")))
-	_box(_visuals, Vector3(0.26, 0.26, 0.014), Vector3(0, 1.10, 0.11), steel)
-	_box(_visuals, Vector3(0.13, 0.13, 0.016), Vector3(0, 1.10, 0.122), _material(Color("e5edf0")))
-	_create_hitbox(Vector3(0.66, 0.96, 0.20), Vector3(0, 1.0, 0), false)
-	_create_hitbox(Vector3(0.38, 0.40, 0.24), Vector3(0, 1.72, 0), true)
+	_region("Head", "Head", "HeadTop_End", 0.105, true)
+	_region("Body", "Hips", "Spine2", 0.17)
+	_region("Neck", "Spine2", "Neck", 0.075)
+	for side in ["Left", "Right"]:
+		_region(side + "Arm", side + "Arm", side + "ForeArm", 0.058)
+		_region(side + "ForeArm", side + "ForeArm", side + "Hand", 0.047)
+		_region(side + "Hand", side + "Hand", side + "HandMiddle2", 0.042)
+		_region(side + "Thigh", side + "UpLeg", side + "Leg", 0.085)
+		_region(side + "Leg", side + "Leg", side + "Foot", 0.062)
+		_region(side + "Foot", side + "Foot", side + "ToeBase", 0.065)
 	_label = Label3D.new()
-	_label.position = Vector3(0, 2.18, 0)
-	_label.font_size = 48
-	_label.pixel_size = 0.006
+	_label.position = Vector3(0, 2.15, 0)
+	_label.font_size = 40
+	_label.pixel_size = 0.004
 	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_label.modulate = Color("dceaf0")
+	_label.modulate = Color("5bdacf") if moving else Color("f2bb7c")
 	_label.outline_size = 8
-	_label.no_depth_test = false
 	add_child(_label)
+	_sync_regions()
 	_update_label()
-
 
 func _physics_process(delta: float) -> void:
 	if not active:
 		return
 	_time += delta
-	if moving:
-		position.x = _origin.x + sin(_time * 0.8) * 2.2
 	if not alive:
 		_respawn_left -= delta
+		_visuals.sample(_time, 1.0 - _respawn_left)
 		if _respawn_left <= 0.0:
 			_restore()
 		return
-	_flash_left = maxf(0.0, _flash_left - delta)
-	_body_material.albedo_color = Color.WHITE if _flash_left > 0.0 else _base_color
+	if moving:
+		position.x = _origin.x + sin(_time * 0.8) * 2.2
+	_visuals.sample(_time, -1.0)
+	_sync_regions()
 
-
-func apply_hit(damage: int, headshot: bool) -> Dictionary:
+func apply_hit(headshot: bool) -> Dictionary:
 	if not alive or not active:
 		return {"hit": false, "killed": false, "headshot": headshot}
-	var result: Dictionary = Rules.damage_result(hp, armor, damage, headshot)
+	var result := Rules.damage_result(hp, headshot)
 	hp = int(result.hp)
-	armor = int(result.armor)
-	var killed: bool = bool(result.killed)
-	_flash_left = 0.10
-	if killed:
+	if result.killed:
 		alive = false
 		_respawn_left = 1.0
-		_visuals.visible = false
-		for shape: CollisionShape3D in _shapes:
-			shape.set_deferred("disabled", true)
-	_update_label()
-	hit.emit(headshot, killed)
-	return {"hit": true, "killed": killed, "headshot": headshot}
-
+		for region in _regions:
+			region.area.collision_layer = 0
+		_update_label()
+	hit.emit(headshot, result.killed)
+	return {"hit": true, "killed": result.killed, "headshot": headshot}
 
 func reset_target() -> void:
 	_time = 0.0
 	position = _origin
 	_restore()
 
-
 func _restore() -> void:
 	hp = 100
-	armor = 100 if armored else 0
 	alive = true
 	_respawn_left = 0.0
-	_flash_left = 0.0
-	if is_instance_valid(_visuals):
-		_visuals.visible = true
-		_body_material.albedo_color = _base_color
-		for shape: CollisionShape3D in _shapes:
-			shape.set_deferred("disabled", false)
-		_update_label()
-
+	_visuals.sample(_time, -1.0)
+	_sync_regions()
+	for region in _regions:
+		region.area.collision_layer = 2
+	_update_label()
 
 func _update_label() -> void:
-	if not is_instance_valid(_label):
-		return
-	var mode: String = "TRACK" if moving else "STATIC"
-	if alive:
-		_label.text = "%02d / %s\nHP %03d  AR %03d" % [target_index + 1, mode, hp, armor]
-	else:
-		_label.text = "%02d / RESET" % (target_index + 1)
+	_label.text = "%02d / %s" % [target_index + 1, ("TRACK" if moving else "STATIC") if alive else "RESET"]
 
-
-func _create_hitbox(size: Vector3, pos: Vector3, headshot: bool) -> void:
+func _region(region_name: String, start: String, end: String, radius: float, head := false) -> void:
 	var area := Area3D.new()
-	area.name = "Head" if headshot else "Body"
+	area.name = region_name
 	area.collision_layer = 2
 	area.collision_mask = 0
 	area.monitoring = false
 	area.set_meta("target", self)
-	area.set_meta("headshot", headshot)
-	var shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = size
-	shape.shape = box
-	area.position = pos
-	area.add_child(shape)
+	area.set_meta("headshot", head)
+	var collision := CollisionShape3D.new()
+	if head:
+		var sphere := SphereShape3D.new()
+		sphere.radius = radius
+		collision.shape = sphere
+	else:
+		var capsule := CapsuleShape3D.new()
+		capsule.radius = radius
+		collision.shape = capsule
+	area.add_child(collision)
 	add_child(area)
-	_shapes.append(shape)
+	_regions.append({"area": area, "shape": collision.shape, "start": start, "end": end, "radius": radius, "head": head})
 
-
-func _material(color: Color) -> StandardMaterial3D:
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.roughness = 0.8
-	return mat
-
-
-func _box(parent: Node3D, size: Vector3, pos: Vector3, mat: Material) -> void:
-	var instance := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = size
-	instance.mesh = box
-	instance.material_override = mat
-	instance.position = pos
-	parent.add_child(instance)
+func _sync_regions() -> void:
+	for region in _regions:
+		var a: Vector3 = _visuals.bone_point(region.start)
+		var b: Vector3 = _visuals.bone_point(region.end)
+		region.area.global_position = a.lerp(b, 0.53 if region.head else 0.5)
+		if not region.head:
+			region.shape.height = a.distance_to(b) + 2.0 * region.radius
+			region.area.global_basis = Basis(Quaternion(Vector3.UP, (b - a).normalized()))
+		region.area.force_update_transform()

@@ -95,7 +95,7 @@ func test_complete_ammo_cycle() -> void:
 	for id: String in Rules.WEAPONS:
 		var weapon: Node = new_weapon(id)
 		var observed: Dictionary = {"shots": 0, "depleted": 0, "final_shots": 0}
-		weapon.fired.connect(func(_damage: int) -> void: observed.shots += 1)
+		weapon.fired.connect(func() -> void: observed.shots += 1)
 		weapon.depleted.connect(func() -> void:
 			observed.depleted += 1
 			observed.final_shots = observed.shots
@@ -117,38 +117,30 @@ func test_complete_ammo_cycle() -> void:
 
 
 func test_damage() -> void:
-	var result: Dictionary = Rules.damage_result(100, 10, 40)
-	check(result.hp == 70 and result.armor == 0 and not result.killed, "armor overflow preserves full damage")
-	result = Rules.damage_result(100, 100, 40)
-	check(result.hp == 100 and result.armor == 60, "armor absorbs damage without reduction")
-	result = Rules.damage_result(100, 40, 40)
-	check(result.hp == 100 and result.armor == 0, "exact armor depletion does not damage health")
 	for id: String in Rules.WEAPONS:
-		var damage: int = Rules.WEAPONS[id].damage
-		result = Rules.damage_result(100, 0, damage)
-		check(result.hp == 100 - damage, id + " unarmored body damage")
-		result = Rules.damage_result(100, 100, damage, true)
-		check(result.hp == 0 and result.killed and result.armor == 100, id + " armored headshot bypasses armor")
-		result = Rules.damage_result(100, 0, damage, true)
-		check(result.hp == 0 and result.killed, id + " unarmored headshot kills")
-	result = Rules.damage_result(5, 0, 40)
-	check(result.hp == 0 and result.killed, "health clamps to zero on lethal hit")
-
+		var result: Dictionary = Rules.damage_result(100, false)
+		check(result.hp == 100 and not result.killed, id + " body/limb never damages")
+		result = Rules.damage_result(100, true)
+		check(result.hp == 0 and result.killed, id + " headshot kills instantly")
+		result = Rules.damage_result(0, true)
+		check(not result.killed, id + " dead target cannot count twice")
+	var hp := 100
+	for i in 100:
+		hp = Rules.damage_result(hp, false).hp
+	check(hp == 100, "repeated non-head hits never accumulate damage")
 
 func test_purchases() -> void:
-	var result: Dictionary = Rules.purchase("deagle", false, 5000, false)
-	check(result.ok and result.money == 5000 and result.armor == 0, "free default pistol")
-	result = Rules.purchase("deagle", true, 5000, false)
-	check(result.ok and result.money == 4000 and result.armor == 100, "pistol plus full armor")
-	result = Rules.purchase("ak47", true, 5000, false)
-	check(result.ok and result.money == 1300 and result.weapon == "ak47", "AK and armor price")
-	result = Rules.purchase("m4a1", true, 5000, false)
-	check(result.ok and result.money == 900, "M4 and armor price")
-	result = Rules.purchase("m4a1", true, 900, true)
-	check(not result.ok and result.reason == "already_bought" and result.money == 900, "duplicate purchase cannot deduct money")
-	result = Rules.purchase("m4a1", true, 4000, false)
-	check(not result.ok and result.reason == "insufficient_funds" and result.money == 4000, "cannot overspend")
-	result = Rules.purchase("deagle", false, 0, false)
+	var result: Dictionary = Rules.purchase("deagle", 5000, false)
+	check(result.ok and result.money == 5000, "free default pistol")
+	result = Rules.purchase("ak47", 5000, false)
+	check(result.ok and result.money == 2300 and result.weapon == "ak47", "AK price")
+	result = Rules.purchase("m4a1", 5000, false)
+	check(result.ok and result.money == 1900, "M4 price")
+	result = Rules.purchase("m4a1", 1900, true)
+	check(not result.ok and result.reason == "already_bought" and result.money == 1900, "duplicate purchase cannot deduct money")
+	result = Rules.purchase("m4a1", 3000, false)
+	check(not result.ok and result.reason == "insufficient_funds" and result.money == 3000, "cannot overspend")
+	result = Rules.purchase("deagle", 0, false)
 	check(result.ok and result.money == 0, "default pistol requires no funds")
-	result = Rules.purchase("unknown", false, 5000, false)
+	result = Rules.purchase("unknown", 5000, false)
 	check(not result.ok and result.reason == "unknown_weapon", "only three permitted weapons")

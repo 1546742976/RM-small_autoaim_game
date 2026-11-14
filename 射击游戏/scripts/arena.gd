@@ -2,7 +2,6 @@ extends Node3D
 ## Self-contained graybox range. World geometry blocks rays on layer 1.
 
 const Target = preload("res://scripts/training_target.gd")
-const STATION_POSITION := Vector3(-8, 0, 8)
 
 var targets: Array = []
 
@@ -12,7 +11,6 @@ func _ready() -> void:
 	_build_lighting()
 	_build_hall()
 	_build_targets()
-	_build_station()
 
 
 func set_active(value: bool) -> void:
@@ -31,15 +29,24 @@ func _build_lighting() -> void:
 	environment.background_mode = Environment.BG_COLOR
 	environment.background_color = Color("101c28")
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color("a8c3d7")
-	environment.ambient_light_energy = 0.65
+	environment.ambient_light_color = Color("d2d9e1")
+	environment.ambient_light_energy = 0.85
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	var sky := Sky.new()
+	var sky_material := ProceduralSkyMaterial.new()
+	sky_material.sky_top_color = Color("7b8b9b")
+	sky_material.sky_horizon_color = Color("d8e3e8")
+	sky_material.ground_bottom_color = Color("26323c")
+	sky_material.ground_horizon_color = Color("9aa8b0")
+	sky.sky_material = sky_material
+	environment.sky = sky
+	environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	world.environment = environment
 	add_child(world)
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-60, -25, 0)
 	sun.light_color = Color("e5edf4")
-	sun.light_energy = 1.6
+	sun.light_energy = 1.4
 	sun.shadow_enabled = true
 	add_child(sun)
 	for z: float in [8.0, -6.0, -20.0]:
@@ -97,23 +104,13 @@ func _build_targets() -> void:
 	]
 	for index: int in range(6):
 		var target := Target.new()
-		target.setup(index, index >= 3, index % 2 == 1)
+		target.setup(index, index >= 3)
 		target.position = positions[index]
 		add_child(target)
 		targets.append(target)
-		var base_color: Color = Color("3a6264") if index % 2 == 1 else Color("705b46")
+		var base_color: Color = Color("3a6264") if index >= 3 else Color("705b46")
 		var width: float = 5.2 if index >= 3 else 1.4
 		_box(Vector3(width, 0.012, 0.8), positions[index] + Vector3(0, 0.015, 0), _material(base_color), false)
-
-
-func _build_station() -> void:
-	var base := _material(Color("243541"))
-	var teal := _material(Color("54d9c4"), true)
-	_box(Vector3(1.4, 1.15, 0.8), STATION_POSITION + Vector3(0, 0.575, 0), base, true)
-	_box(Vector3(1.3, 0.5, 0.12), STATION_POSITION + Vector3(0, 1.45, 0), base, true)
-	_box(Vector3(1.1, 0.34, 0.04), STATION_POSITION + Vector3(0, 1.45, 0.09), teal, false)
-	_label("ARMOR TEST / E", STATION_POSITION + Vector3(0, 2.15, 0), 48, 0.007, Color("78efda"))
-	_label("40 DAMAGE / BUY PHASE", STATION_POSITION + Vector3(0, 1.95, 0), 30, 0.006, Color("bcced4"))
 
 
 func _material(color: Color, emissive: bool = false) -> StandardMaterial3D:

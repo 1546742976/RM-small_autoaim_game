@@ -10,10 +10,8 @@ const SENSITIVITY := 0.0022
 var active: bool = false
 var camera: Camera3D
 var weapon_root: Node3D
-var muzzle: MeshInstance3D
+var view: Node3D
 var _pitch: float = 0.0
-var _flash_left: float = 0.0
-var _kick: float = 0.0
 var _horizontal_speed: float = 0.0
 var _weapon_id: String = "deagle"
 
@@ -37,7 +35,7 @@ func _ready() -> void:
 	camera.current = true
 	add_child(camera)
 	weapon_root = Node3D.new()
-	weapon_root.position = Vector3(0.28, -0.25, -0.48)
+	weapon_root.position = Vector3(0.22, -0.29, -0.46)
 	camera.add_child(weapon_root)
 	set_weapon(_weapon_id)
 
@@ -46,17 +44,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not active or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	if event is InputEventMouseMotion:
+		for flag in ["--smoke-test", "--showcase", "--benchmark"]:
+			if flag in OS.get_cmdline_user_args() and not event.has_meta("smoke_motion"):
+				return
 		rotate_y(-event.relative.x * SENSITIVITY)
 		_pitch = clampf(_pitch - event.relative.y * SENSITIVITY, -1.42, 1.42)
 		camera.rotation.x = _pitch
 
 
 func _physics_process(delta: float) -> void:
-	_flash_left = maxf(0.0, _flash_left - delta)
-	_kick = move_toward(_kick, 0.0, delta * 0.7)
-	if is_instance_valid(muzzle):
-		muzzle.visible = _flash_left > 0.0
-	weapon_root.position.z = -0.48 + _kick
 	if not active:
 		velocity = Vector3.ZERO
 		_horizontal_speed = 0.0
@@ -91,10 +87,10 @@ func reset_position(pos: Vector3 = Vector3(0, 0.02, 9)) -> void:
 	_pitch = 0.0
 	velocity = Vector3.ZERO
 	_horizontal_speed = 0.0
-	_flash_left = 0.0
-	_kick = 0.0
 	if is_instance_valid(camera):
 		camera.rotation = Vector3.ZERO
+	if is_instance_valid(view):
+		view.reset_pose()
 
 
 func set_weapon(id: String) -> void:
@@ -104,45 +100,12 @@ func set_weapon(id: String) -> void:
 	for child: Node in weapon_root.get_children():
 		weapon_root.remove_child(child)
 		child.queue_free()
-	var metal := _material(Color("333e49"))
-	var grip := _material(Color("17212b"))
-	var accent := _material(Color("4ed8c7"))
-	var length: float = 0.32 if id == "deagle" else 0.65
-	_box(weapon_root, Vector3(0.11, 0.12, length), Vector3(0, 0, -length * 0.35), metal)
-	_box(weapon_root, Vector3(0.09, 0.22, 0.11), Vector3(0, -0.12, 0.035), grip)
-	_box(weapon_root, Vector3(0.08, 0.025, 0.10), Vector3(0, 0.07, -0.02), accent)
-	_box(weapon_root, Vector3(0.035, 0.045, 0.03), Vector3(0, 0.09, -length * 0.72), metal)
-	if id != "deagle":
-		var stock_color: Color = Color("9b6d42") if id == "ak47" else Color("28343e")
-		_box(weapon_root, Vector3(0.10, 0.11, 0.23), Vector3(0, 0, 0.24), _material(stock_color))
-		_box(weapon_root, Vector3(0.08, 0.22, 0.14), Vector3(0, -0.14, -0.15), grip)
-		_box(weapon_root, Vector3(0.13, 0.10, 0.22), Vector3(0, -0.01, -0.28), _material(stock_color))
-	var flash_material := _material(Color("ffd68a"))
-	flash_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	muzzle = _box(weapon_root, Vector3(0.10, 0.10, 0.14), Vector3(0, 0.015, -length * 0.88 - 0.03), flash_material)
-	muzzle.visible = false
+	view = load("res://scenes/weapons/%s.tscn" % id).instantiate()
+	weapon_root.add_child(view)
 	weapon_root.visible = true
 
-
 func play_shot() -> void:
-	_flash_left = 0.045
-	_kick = 0.045
+	view.play_shot()
 
-
-func _material(color: Color) -> StandardMaterial3D:
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.roughness = 0.65
-	return mat
-
-
-func _box(parent: Node3D, size: Vector3, pos: Vector3, mat: Material) -> MeshInstance3D:
-	var mesh := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = size
-	mesh.mesh = box
-	mesh.material_override = mat
-	mesh.position = pos
-	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	parent.add_child(mesh)
-	return mesh
+func update_reload(left_ms: float, total_ms: float) -> void:
+	view.set_reload(left_ms, total_ms)
