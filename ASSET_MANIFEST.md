@@ -1,6 +1,6 @@
 # 模型、材质与许可清单
 
-本清单适用于本仓库生成的五个 GLB。下表的上游原始作品与改编镜像均保留署名；上游说明中提到的其他武器、功能、检查结果不属于本项目交付或本项目验证结论。
+本清单适用于本仓库生成的五个 GLB、原创地图及界面预览。下表的上游原始作品与改编镜像均保留署名；上游说明中提到的其他武器、功能、检查结果不属于本项目交付或本项目验证结论。
 
 | 交付资产 | 原作者及原始来源 | 许可 | 本项目修改 |
 |---|---|---|---|
@@ -25,3 +25,18 @@ CC BY 署名：**“Desert Eagle” by ELIZION, licensed under CC BY 4.0. “fps
 模型由 Blender 4.5.3 整理，GLB 包含网格、材质和需要的骨骼动作；Godot 导入后把贴图保留在模型资源中。游戏无需安装 Blender。三个枪械场景提供 `Muzzle`、`LeftGrip`、`RightGrip`、`Magazine`、`Slide`、`Bolt` 等部件入口，动画不掌管弹药。
 
 不包含从商业游戏提取的模型、不明许可素材、付费下载或需要登录才能运行的资产。预算支出为 0 元。
+
+## 旧镇街区与界面预览（2026-11-14）
+
+旧镇街区的布局、建筑模块、拱门、门窗、阳台、木箱、木桶、花盆与场景组装由本项目制作，适用项目 MIT。风格参考 Valve 的 [Inferno 官方展示](https://www.counter-strike.net/inferno/)，没有复制地图文件、网格、贴图或标识；不是 Inferno 的地图复刻。
+
+| 材质 | 作者与来源 | 许可与改动 |
+|---|---|---|
+| 石板道路 | Lennart Demes / ambientCG，[PavingStones036](https://ambientcg.com/a/PavingStones036) | CC0，选用 2K 颜色、OpenGL 法线、粗糙度图；引擎内调整重复比例与色调 |
+| 外墙灰泥 | Lennart Demes / ambientCG，[Plaster001](https://ambientcg.com/a/Plaster001) | 同上，按建筑改变底色、降低法线强度 |
+| 木门、木箱、木桶 | Lennart Demes / ambientCG，[WoodFloor051](https://ambientcg.com/a/WoodFloor051) | 同上，改用于木制构件 |
+| 陶瓦屋顶 | Lennart Demes / ambientCG，[RoofingTiles012A](https://ambientcg.com/a/RoofingTiles012A) | 同上，使用自制双坡屋顶几何 |
+
+来源许可：https://docs.ambientcg.com/license/ 。`assets/licenses/town-materials.json` 保存每个原始 ZIP 的下载链接、SHA256、所用贴图名及改动，CC0 正文随包提供。地图贴图共 12 张，均为 2048×2048；这些非金属表面金属度为 0。
+
+`assets/ui/` 的两张地图图和三张透明背景枪械图均使用本项目的 Godot 场景离线渲染；枪械预览继承对应模型的署名要求。UI 使用 Godot 原生控件和 Noto Sans SC 字体，不引入网页运行时。

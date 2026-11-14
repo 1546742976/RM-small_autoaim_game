@@ -1,29 +1,24 @@
 extends Node3D
-
 signal phase_changed(phase: String)
 signal score_changed
-
 const Rules = preload("res://scripts/game_rules.gd")
 const WeaponController = preload("res://scripts/weapon_controller.gd")
 const PlayerController = preload("res://scripts/player_controller.gd")
 const Arena = preload("res://scripts/arena.gd")
 const GameHUD = preload("res://scripts/game_hud.gd")
-
 var arena: Node3D
 var player: CharacterBody3D
 var weapon: Node
 var ui: CanvasLayer
 var phase := "menu"
 var remaining := 0.0
-var money := 5000
-var hp := 100
-var bought := false
+var selected_map := "old_town"
+var selected_weapon := "deagle"
 var shots := 0
 var hits := 0
 var kills := 0
 var headshots := 0
 var pending_shots := 0
-var was_shop_open := false
 var shot_sound: AudioStreamPlayer
 var hit_sound: AudioStreamPlayer
 var sounds: Dictionary = {}
@@ -31,7 +26,7 @@ var sounds: Dictionary = {}
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	process_physics_priority = 10
-	DisplayServer.window_set_min_size(Vector2i(960, 540))
+	DisplayServer.window_set_min_size(Vector2i(960,540))
 	_setup_inputs()
 	arena = Arena.new()
 	arena.process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -39,133 +34,109 @@ func _ready() -> void:
 	player = PlayerController.new()
 	player.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(player)
-	player.reset_position()
 	weapon = WeaponController.new()
 	weapon.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(weapon)
 	weapon.fired.connect(_on_fired)
-	weapon.depleted.connect(func(): finish_round("弹药耗尽 · 本轮结束"))
+	weapon.depleted.connect(func(): finish_round("弹药耗尽"))
 	ui = GameHUD.new()
 	add_child(ui)
-	ui.start_requested.connect(start_round)
-	ui.purchase_requested.connect(confirm_purchase)
-	ui.shop_closed.connect(close_shop)
+	ui.setup_requested.connect(show_setup)
+	ui.selection_changed.connect(_select_loadout)
+	ui.launch_requested.connect(start_round)
+	ui.replay_requested.connect(start_round)
 	ui.resume_requested.connect(resume_game)
 	ui.menu_requested.connect(show_menu)
 	ui.quit_requested.connect(func(): get_tree().quit())
 	_setup_audio()
 	show_menu()
-	# A shipped, opt-in smoke check exercises this exact exported build.
 	if "--smoke-test" in OS.get_cmdline_user_args():
 		var smoke = load("res://tests/game_smoke.gd").new()
 		add_child(smoke)
-		smoke.call_deferred("run", self)
-	elif "--showcase" in OS.get_cmdline_user_args() or "--benchmark" in OS.get_cmdline_user_args():
+		smoke.call_deferred("run",self)
+	elif "--showcase" in OS.get_cmdline_user_args() or "--benchmark" in OS.get_cmdline_user_args() or "--previews" in OS.get_cmdline_user_args():
 		var presentation = load("res://tests/presentation_capture.gd").new()
 		add_child(presentation)
-		presentation.call_deferred("run", self)
+		presentation.call_deferred("run",self)
 
 func _setup_inputs() -> void:
-	var bindings := {"move_forward": KEY_W, "move_back": KEY_S, "move_left": KEY_A, "move_right": KEY_D, "reload": KEY_R, "shop": KEY_B}
+	var bindings := {"move_forward":KEY_W,"move_back":KEY_S,"move_left":KEY_A,"move_right":KEY_D,"reload":KEY_R}
 	for action in bindings:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
 			var event := InputEventKey.new()
 			event.physical_keycode = bindings[action]
-			InputMap.action_add_event(action, event)
+			InputMap.action_add_event(action,event)
 
-func show_menu() -> void:
+func _reset_player() -> void:
+	var spawn: Transform3D = arena.get_spawn()
+	player.reset_position(spawn.origin,spawn.basis.get_euler().y)
+
+func _stop_play() -> void:
 	get_tree().paused = false
-	phase = "menu"
 	pending_shots = 0
 	player.active = false
 	weapon.active = false
 	arena.set_active(false)
-	player.reset_position()
+	player.update_reload(0,1)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func show_menu() -> void:
+	_stop_play()
+	phase = "menu"
+	_reset_player()
+	player.weapon_root.hide()
 	ui.show_menu()
 	phase_changed.emit(phase)
 
+func show_setup() -> void:
+	_stop_play()
+	phase = "setup"
+	player.weapon_root.hide()
+	ui.show_setup(selected_map,selected_weapon)
+	phase_changed.emit(phase)
+
+func _select_loadout(map_id: String, weapon_id: String) -> void:
+	if phase != "setup": return
+	selected_map = map_id
+	selected_weapon = weapon_id
+
 func start_round() -> void:
-	get_tree().paused = false
-	phase = "buy"
-	remaining = 15.0
-	money = 5000
-	hp = 100
-	bought = false
+	if phase != "setup" and phase != "results": return
+	_stop_play()
+	arena.load_map(selected_map)
+	arena.reset_targets()
+	weapon.reset(selected_weapon)
+	weapon.active = false
+	player.set_weapon(selected_weapon)
+	_reset_player()
 	shots = 0
 	hits = 0
 	kills = 0
 	headshots = 0
-	pending_shots = 0
-	weapon.reset("deagle")
-	weapon.active = false
-	player.set_weapon("deagle")
-	player.reset_position()
-	arena.reset_targets()
-	arena.set_active(false)
-	open_shop()
+	remaining = 3.0
+	phase = "countdown"
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	ui.show_countdown(3)
+	phase_changed.emit(phase)
+
+func begin_training() -> void:
+	if phase != "countdown": return
+	phase = "training"
+	remaining = 60.0
+	weapon.active = true
+	player.active = true
+	arena.set_active(true)
+	ui.hide_overlay()
 	_update_hud()
 	phase_changed.emit(phase)
 
-func confirm_purchase(weapon_id: String) -> void:
-	if phase != "buy" or get_tree().paused:
-		return
-	var result: Dictionary = Rules.purchase(weapon_id, money, bought)
-	if not result.ok:
-		ui.notify("装备已确认，本轮不能再次购买。")
-		return
-	money = result.money
-	bought = true
-	weapon.reset(result.weapon)
-	player.set_weapon(result.weapon)
-	close_shop()
-	ui.notify("装备已确认 · 剩余 $%d" % money, 3.0)
-
-func open_shop() -> void:
-	if phase != "buy":
-		return
-	player.active = false
-	pending_shots = 0
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	ui.show_buy(bought, weapon.current_weapon, money)
-
-func close_shop() -> void:
-	ui.hide_overlay()
-	player.active = phase == "buy" or phase == "training"
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-
-func begin_training() -> void:
-	phase = "training"
-	remaining = 60.0
-	hp = 100
-	shots = 0
-	hits = 0
-	kills = 0
-	headshots = 0
-	pending_shots = 0
-	weapon.reset(weapon.current_weapon)
-	weapon.active = true
-	player.reset_position()
-	player.active = true
-	arena.reset_targets()
-	arena.set_active(true)
-	ui.hide_overlay()
-	ui.notify("训练开始 · 速度比低于 0.34 时点击开火", 3.0)
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	phase_changed.emit(phase)
-
 func finish_round(reason: String) -> void:
-	if phase != "training":
-		return
+	if phase != "training": return
+	_stop_play()
 	phase = "results"
-	pending_shots = 0
-	weapon.active = false
-	player.active = false
-	player.update_reload(0.0, 1.0)
-	arena.set_active(false)
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	ui.show_results({"reason": reason, "kills": kills, "shots": shots, "hits": hits, "headshots": headshots, "accuracy": accuracy(), "headshot_rate": headshot_rate(), "weapon": weapon.get_data().name})
+	player.weapon_root.hide()
+	ui.show_results({"reason":reason,"kills":kills,"accuracy":accuracy()})
 	phase_changed.emit(phase)
 
 func accuracy() -> float:
@@ -176,65 +147,41 @@ func headshot_rate() -> float:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
-		if phase == "buy" or phase == "training":
-			if get_tree().paused:
-				resume_game()
-			else:
-				pause_game()
-			get_viewport().set_input_as_handled()
+		if ui.overlay_kind == "help":
+			ui.close_help()
+		elif phase == "setup":
+			show_menu()
+		elif phase == "countdown" or phase == "training":
+			if get_tree().paused: resume_game()
+			else: pause_game()
+		get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if get_tree().paused or (phase != "buy" and phase != "training"):
-		return
-	if event.is_action_pressed("shop") and phase == "buy":
-		if ui.overlay_kind == "buy":
-			close_shop()
-		else:
-			open_shop()
-	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-		return
-	if event.is_action_pressed("reload") and phase == "training":
-		if weapon.start_reload():
-			ui.notify("换弹中 · 可以继续移动", 1.0)
+	if get_tree().paused or phase != "training" or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED: return
+	if event.is_action_pressed("reload"): weapon.start_reload()
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		if phase == "training":
-			# Reject at click time as well as at the next physics raycast. A click
-			# during cooldown/movement must never become a delayed valid shot.
-			var error: String = weapon.fire_error(player.get_speed_ratio())
-			if error.is_empty():
-				pending_shots += 1
-			else:
-				ui.notify(_fire_error(error), 0.7)
-		else:
-			ui.notify("准备阶段 · 倒计时结束后可开火")
+		var error: String = weapon.fire_error(player.get_speed_ratio())
+		if error.is_empty(): pending_shots += 1
+		elif error == "moving": ui.notify("先停稳",0.6)
 
 func _physics_process(delta: float) -> void:
-	if get_tree().paused:
-		return
-	if phase == "buy" or phase == "training":
-		remaining = maxf(0.0, remaining - delta)
-		if remaining <= 0.0:
-			if phase == "buy":
-				begin_training()
-			else:
-				finish_round("时间到 · 本轮结束")
+	if get_tree().paused: return
+	if phase == "countdown":
+		remaining = maxf(0,remaining-delta)
+		ui.update_countdown(ceili(remaining))
+		if remaining <= 0: begin_training()
+	elif phase == "training":
+		remaining = maxf(0,remaining-delta)
+		if remaining <= 0:
+			finish_round("时间到")
+			return
 		var attempts := pending_shots
 		pending_shots = 0
-		for _attempt in range(attempts):
-			if phase == "training":
-				var error: String = weapon.try_fire(player.get_speed_ratio())
-				if not error.is_empty():
-					ui.notify(_fire_error(error), 0.7)
-		player.update_reload(weapon.reload_left_ms if phase == "training" else 0.0, float(weapon.get_data().reload_ms))
-		_update_hud()
-
-func _fire_error(error: String) -> String:
-	match error:
-		"moving", "precision_threshold", "not_accurate", "speed_too_high": return "移动中，无法精准开火"
-		"reloading": return "换弹中，无法开火"
-		"cooldown", "fire_rate_cooldown": return "射击冷却中"
-		"mag_empty", "empty": return "弹夹已空"
-	return "暂时无法开火：" + error
+		for i in attempts:
+			if phase == "training": weapon.try_fire(player.get_speed_ratio())
+		if phase == "training":
+			player.update_reload(weapon.reload_left_ms,float(weapon.get_data().reload_ms))
+			_update_hud()
 
 func _on_fired() -> void:
 	shots += 1
@@ -243,28 +190,25 @@ func _on_fired() -> void:
 	shot_sound.play()
 	var origin: Vector3 = player.camera.global_position
 	var endpoint: Vector3 = origin - player.camera.global_basis.z * 100.0
-	var query := PhysicsRayQueryParameters3D.create(origin, endpoint, 3)
+	var query := PhysicsRayQueryParameters3D.create(origin,endpoint,3)
 	query.collide_with_areas = true
 	query.exclude = [player.get_rid()]
 	var result := get_world_3d().direct_space_state.intersect_ray(query)
-	if not result.is_empty():
-		var collider: Object = result.collider
-		if collider.has_meta("target"):
-			var target: Node3D = collider.get_meta("target")
-			var headshot: bool = collider.get_meta("headshot", false)
-			var hit_result: Dictionary = target.apply_hit(headshot)
-			if hit_result.hit:
-				hits += 1
-				if hit_result.killed:
-					kills += 1
-					if headshot:
-						headshots += 1
-				ui.show_hit(headshot, hit_result.killed)
-				hit_sound.play()
+	if not result.is_empty() and result.collider.has_meta("target"):
+		var target: Node3D = result.collider.get_meta("target")
+		var headshot: bool = result.collider.get_meta("headshot",false)
+		var hit_result: Dictionary = target.apply_hit(headshot)
+		if hit_result.hit:
+			hits += 1
+			if hit_result.killed:
+				kills += 1
+				if headshot: headshots += 1
+			ui.show_hit(headshot,hit_result.killed)
+			hit_sound.play()
 	score_changed.emit()
 
 func pause_game() -> void:
-	was_shop_open = ui.overlay_kind == "buy"
+	if phase != "countdown" and phase != "training": return
 	pending_shots = 0
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -272,40 +216,20 @@ func pause_game() -> void:
 
 func resume_game() -> void:
 	get_tree().paused = false
-	if was_shop_open and phase == "buy":
-		open_shop()
-	else:
-		close_shop()
+	if phase != "countdown" and phase != "training": return
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if phase == "countdown": ui.show_countdown(ceili(remaining))
+	else: ui.hide_overlay()
 
 func _notification(what: int) -> void:
-	# Automated captures control their own pause points; external desktop focus
-	# must not interrupt the scripted test. Normal play still pauses on Alt-Tab.
-	for flag in ["--smoke-test", "--showcase", "--benchmark"]:
-		if flag in OS.get_cmdline_user_args():return
-	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_instance_valid(ui):
-		if (phase == "buy" or phase == "training") and not get_tree().paused:
-			pause_game()
+	for flag in ["--smoke-test","--showcase","--benchmark","--previews"]:
+		if flag in OS.get_cmdline_user_args(): return
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_instance_valid(ui) and not get_tree().paused:
+		pause_game()
 
 func _update_hud() -> void:
-	var speed: float = player.get_speed_ratio()
-	var permission := "可以精准开火"
-	var ready := true
-	if phase != "training":
-		permission = "准备阶段 · 暂不可开火"
-		ready = false
-	elif weapon.is_reloading():
-		permission = "换弹中  %.1f s" % (weapon.reload_left_ms / 1000.0)
-		ready = false
-	elif speed >= 0.34:
-		permission = "移动中 · 反向按键急停"
-		ready = false
-	elif weapon.time_ms - weapon.last_fire_ms < weapon.get_data().interval_ms:
-		permission = "射击冷却中"
-		ready = false
-	elif weapon.mag <= 0:
-		permission = "弹夹已空"
-		ready = false
-	ui.update_status({"phase": phase, "remaining": remaining, "kills": kills, "accuracy": accuracy(), "weapon": weapon.get_data().name, "mag": weapon.mag, "reserve": weapon.reserve, "hp": hp, "speed": speed, "permission": permission, "ready": ready})
+	ui.update_status({"remaining":remaining,"mag":weapon.mag,"reserve":weapon.reserve,
+		"ready":weapon.fire_error(player.get_speed_ratio()).is_empty(),"reloading":weapon.is_reloading()})
 
 func _setup_audio() -> void:
 	shot_sound = AudioStreamPlayer.new()

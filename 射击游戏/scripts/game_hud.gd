@@ -1,46 +1,39 @@
 extends CanvasLayer
-
-signal start_requested
-signal purchase_requested(weapon_id: String)
-signal shop_closed
+signal setup_requested
+signal selection_changed(map_id: String, weapon_id: String)
+signal launch_requested
+signal replay_requested
 signal resume_requested
 signal menu_requested
 signal quit_requested
-
 const Rules = preload("res://scripts/game_rules.gd")
-const UI_FONT = preload("res://assets/fonts/NotoSansSC.ttf")
-const INK = Color("101b25")
-const PANEL = Color("172733")
-const LINE = Color("38505c")
-const TEXT = Color("eef4f4")
-const MUTED = Color("b3c6cc")
-const ACCENT = Color("73e3ce")
-const AMBER = Color("ffc577")
-
+const Maps = preload("res://scripts/arena.gd")
+const Reticle = preload("res://scripts/reticle.gd")
+const FONT = preload("res://assets/fonts/NotoSansSC.ttf")
+const INK := Color("15181c")
+const PANEL := Color("202429")
+const LINE := Color("424446")
+const TEXT := Color("f2f0ea")
+const MUTED := Color("a5a5a1")
+const ACCENT := Color("d9ad66")
 var root: Control
 var overlay: Control
 var hud: Control
-var heading: Label
 var clock_label: Label
-var scores: Label
 var ammo: Label
-var vitals: Label
-var velocity_label: Label
-var permit_label: Label
-var instructions: Label
+var reload_label: Label
 var toast: Label
-var crosshair: Label
-var hit_marker: Label
-var speed_bar: ProgressBar
-var shop_money: Label
-var shop_countdown: Label
-var shop_confirm: Button
-var weapon_buttons: Dictionary = {}
-var selected_weapon := "deagle"
-var shop_locked := false
-var toast_left := 0.0
-var marker_left := 0.0
+var crosshair: Control
+var countdown: Label
 var overlay_kind := ""
+var help_origin := "menu"
+var toast_left := 0.0
+var selected_map := "old_town"
+var selected_weapon := "deagle"
+var map_buttons: Dictionary = {}
+var weapon_buttons: Dictionary = {}
+var action_buttons: Dictionary = {}
+var transition: Tween
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -49,280 +42,305 @@ func _ready() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
 	var theme := Theme.new()
-	theme.default_font = UI_FONT
-	theme.default_font_size = 18
-	theme.set_color("font_color", "Label", TEXT)
-	theme.set_color("font_color", "Button", TEXT)
-	theme.set_color("font_hover_color", "Button", ACCENT)
-	theme.set_color("font_disabled_color", "Button", MUTED)
-	theme.set_stylebox("normal", "Button", _box(PANEL, LINE))
-	theme.set_stylebox("hover", "Button", _box(Color("263e48"), ACCENT))
-	theme.set_stylebox("pressed", "Button", _box(Color("31544f"), ACCENT))
-	theme.set_stylebox("disabled", "Button", _box(INK, LINE))
-	theme.set_stylebox("focus", "Button", _box(Color(0, 0, 0, 0), ACCENT, 2))
+	theme.default_font = FONT
+	theme.default_font_size = 22
+	theme.set_color("font_color","Label",TEXT)
+	for state in ["font_color","font_hover_color","font_pressed_color","font_focus_color"]:
+		theme.set_color(state,"Button",TEXT)
+	theme.set_color("font_disabled_color","Button",MUTED)
+	theme.set_stylebox("normal","Button",_box(PANEL,LINE))
+	theme.set_stylebox("hover","Button",_box(Color("303338"),ACCENT))
+	theme.set_stylebox("pressed","Button",_box(Color("373027"),ACCENT,2))
+	theme.set_stylebox("disabled","Button",_box(INK,LINE))
+	theme.set_stylebox("focus","Button",_box(Color.TRANSPARENT,ACCENT,2))
 	root.theme = theme
 	_build_hud()
 	overlay = Control.new()
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.add_child(overlay)
 
-func _box(color: Color, border: Color = LINE, width: int = 1) -> StyleBoxFlat:
+func _box(color: Color, border := Color.TRANSPARENT, width := 1) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = color
 	style.border_color = border
 	style.set_border_width_all(width)
-	style.set_corner_radius_all(8)
+	style.set_corner_radius_all(4)
 	style.content_margin_left = 22
 	style.content_margin_right = 22
-	style.content_margin_top = 16
-	style.content_margin_bottom = 16
+	style.content_margin_top = 12
+	style.content_margin_bottom = 12
 	return style
 
-func _label(text: String, size: int = 18, color: Color = TEXT) -> Label:
+func _label(text: String, size := 22, color := TEXT) -> Label:
 	var node := Label.new()
 	node.text = text
-	node.add_theme_font_size_override("font_size", size)
-	node.add_theme_color_override("font_color", color)
+	node.add_theme_font_size_override("font_size",size)
+	node.add_theme_color_override("font_color",color)
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return node
 
-func _button(text: String, callback: Callable) -> Button:
-	var node := Button.new()
-	node.text = text
-	node.custom_minimum_size.y = 48
-	node.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	node.pressed.connect(callback)
-	return node
+func _button(text: String, callback: Callable, primary := false) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.custom_minimum_size.y = 52
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.pressed.connect(callback)
+	if primary:
+		button.add_theme_stylebox_override("normal",_box(ACCENT,ACCENT))
+		button.add_theme_stylebox_override("hover",_box(Color("ebc486"),ACCENT))
+		button.add_theme_stylebox_override("pressed",_box(Color("b98e4b"),ACCENT))
+		for state in ["font_color","font_hover_color","font_pressed_color","font_focus_color"]:
+			button.add_theme_color_override(state,INK)
+	var hover_tween: Array[Tween] = []
+	var animate := func(brightness: float):
+		if not hover_tween.is_empty() and hover_tween[0].is_valid(): hover_tween[0].kill()
+		var tween := button.create_tween()
+		hover_tween.assign([tween])
+		tween.tween_property(button,"modulate",Color(brightness,brightness,brightness),0.12)
+	button.mouse_entered.connect(animate.bind(1.07))
+	button.mouse_exited.connect(animate.bind(1.0))
+	return button
 
-func _panel_at(parent: Control, preset: int, offsets: Rect2) -> PanelContainer:
-	var panel := PanelContainer.new()
-	parent.add_child(panel)
-	panel.set_anchors_and_offsets_preset(preset)
-	panel.offset_left = offsets.position.x
-	panel.offset_top = offsets.position.y
-	panel.offset_right = offsets.end.x
-	panel.offset_bottom = offsets.end.y
-	panel.add_theme_stylebox_override("panel", _box(Color(0.04, 0.08, 0.11, 0.92)))
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return panel
+func _place(node: Control, parent: Control, preset: int, rect: Rect2) -> void:
+	parent.add_child(node)
+	node.set_anchors_and_offsets_preset(preset)
+	node.offset_left = rect.position.x
+	node.offset_top = rect.position.y
+	node.offset_right = rect.end.x
+	node.offset_bottom = rect.end.y
 
 func _build_hud() -> void:
 	hud = Control.new()
-	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.add_child(hud)
-	var top := _panel_at(hud, Control.PRESET_TOP_WIDE, Rect2(24, 20, -48, 80))
-	var row := HBoxContainer.new()
-	top.add_child(row)
-	heading = _label("RM / PRECISION LAB", 20, ACCENT)
-	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(heading)
-	scores = _label("击杀  0     命中率  0%", 18)
-	row.add_child(scores)
-	clock_label = _label("   60.0", 28, AMBER)
-	clock_label.custom_minimum_size.x = 140
-	clock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(clock_label)
-	var left := _panel_at(hud, Control.PRESET_BOTTOM_LEFT, Rect2(24, -150, 310, 126))
-	var left_column := VBoxContainer.new()
-	left.add_child(left_column)
-	velocity_label = _label("速度比  0.000 / 0.340", 19)
-	left_column.add_child(velocity_label)
-	speed_bar = ProgressBar.new()
-	speed_bar.custom_minimum_size.y = 8
-	speed_bar.max_value = 1.0
-	speed_bar.show_percentage = false
-	var track := _box(LINE, LINE, 0)
-	var fill := _box(ACCENT, ACCENT, 0)
-	for style in [track, fill]:
-		style.content_margin_top = 0
-		style.content_margin_bottom = 0
-		style.content_margin_left = 0
-		style.content_margin_right = 0
-	speed_bar.add_theme_stylebox_override("background", track)
-	speed_bar.add_theme_stylebox_override("fill", fill)
-	left_column.add_child(speed_bar)
-	permit_label = _label("可以精准开火", 19, ACCENT)
-	left_column.add_child(permit_label)
-	var right := _panel_at(hud, Control.PRESET_BOTTOM_RIGHT, Rect2(-324, -150, 300, 126))
-	var right_column := VBoxContainer.new()
-	right.add_child(right_column)
-	ammo = _label("沙鹰   07 / 14", 24)
-	right_column.add_child(ammo)
-	vitals = _label("生命 100", 18, MUTED)
-	right_column.add_child(vitals)
-	instructions = _label("WASD 移动 · 左键单发 · R 换弹 · Esc 暂停", 16, MUTED)
-	hud.add_child(instructions)
-	instructions.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	instructions.offset_left = -310
-	instructions.offset_right = 310
-	instructions.offset_top = -45
-	instructions.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	crosshair = _label("＋", 24, ACCENT)
-	hud.add_child(crosshair)
-	crosshair.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	crosshair.offset_left = -20
-	crosshair.offset_right = 20
-	crosshair.offset_top = -20
-	crosshair.offset_bottom = 20
-	crosshair.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	crosshair.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	hit_marker = _label("×", 40, AMBER)
-	hud.add_child(hit_marker)
-	hit_marker.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	hit_marker.offset_left = -30
-	hit_marker.offset_right = 30
-	hit_marker.offset_top = -30
-	hit_marker.offset_bottom = 30
-	hit_marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hit_marker.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	hit_marker.hide()
-	toast = _label("", 20, AMBER)
-	hud.add_child(toast)
-	toast.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	toast.offset_left = -490
-	toast.offset_right = 490
-	toast.offset_top = 60
+	clock_label = _label("1:00",32)
+	clock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	clock_label.add_theme_color_override("font_shadow_color",Color(0,0,0,0.8))
+	clock_label.add_theme_constant_override("shadow_offset_y",2)
+	_place(clock_label,hud,Control.PRESET_CENTER_TOP,Rect2(-75,24,150,48))
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_theme_stylebox_override("panel",_box(Color(0.06,0.07,0.08,0.72)))
+	_place(panel,hud,Control.PRESET_BOTTOM_RIGHT,Rect2(-235,-120,203,88))
+	var column := VBoxContainer.new()
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(column)
+	ammo = _label("07 / 14",34)
+	ammo.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	column.add_child(ammo)
+	reload_label = _label("",18,ACCENT)
+	reload_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	column.add_child(reload_label)
+	crosshair = Reticle.new()
+	crosshair.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_place(crosshair,hud,Control.PRESET_CENTER,Rect2(-32,-32,64,64))
+	toast = _label("",20,ACCENT)
 	toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_place(toast,hud,Control.PRESET_CENTER,Rect2(-180,44,360,36))
 
-func _clear_overlay(kind: String) -> VBoxContainer:
+func _clear(kind: String, width := 1040.0) -> VBoxContainer:
+	if transition != null and transition.is_valid(): transition.kill()
 	for child in overlay.get_children():
 		overlay.remove_child(child)
 		child.queue_free()
+	action_buttons.clear()
 	overlay_kind = kind
+	hud.hide()
 	overlay.show()
+	overlay.modulate = Color.WHITE
 	var shade := ColorRect.new()
-	shade.color = Color(0.015, 0.035, 0.05, 0.76)
+	shade.color = Color(0.035,0.043,0.05,0.9 if kind == "setup" else 0.78)
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(shade)
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(center)
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size.x = 880
-	panel.add_theme_stylebox_override("panel", _box(INK, LINE))
-	center.add_child(panel)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 16)
-	panel.add_child(column)
+	column.custom_minimum_size.x = width
+	column.add_theme_constant_override("separation",18)
+	center.add_child(column)
+	column.modulate.a = 0
+	transition = create_tween()
+	transition.tween_property(column,"modulate:a",1.0,0.12)
 	return column
 
+func _spacer(column: VBoxContainer, height: float) -> void:
+	var space := Control.new()
+	space.custom_minimum_size.y = height
+	column.add_child(space)
+
+func _action(column: BoxContainer, id: String, text: String, callback: Callable, primary := false) -> Button:
+	var button := _button(text,callback,primary)
+	column.add_child(button)
+	action_buttons[id] = button
+	return button
+
+func _focus(button: Button) -> void:
+	_grab_focus.call_deferred(weakref(button))
+
+func _grab_focus(reference: WeakRef) -> void:
+	var button = reference.get_ref()
+	if is_instance_valid(button) and button.is_inside_tree(): button.grab_focus()
+
 func show_menu() -> void:
-	hud.hide()
-	var column := _clear_overlay("menu")
-	column.add_child(_label("RM  /  PRECISION LAB                                     TRAINING 01", 17, ACCENT))
-	column.add_child(_label("先停稳，再命中。", 48))
-	column.add_child(_label("急停射击训练场", 25, MUTED))
-	column.add_child(HSeparator.new())
-	column.add_child(_label("01  控制移动        02  速度比 < 0.34        03  单发命中", 22, AMBER))
-	column.add_child(_label("三把武器 · 六个训练靶 · 六十秒挑战\n无随机散布，让每一次命中都来自你的判断。", 20, MUTED))
-	column.add_child(_button("开始训练  →", func(): start_requested.emit()))
-	column.add_child(_button("退出游戏", func(): quit_requested.emit()))
-	column.add_child(_label("WASD 移动   /   鼠标瞄准   /   左键单发   /   R 换弹   /   Esc 暂停", 16, MUTED))
+	var column := _clear("menu",680)
+	column.add_child(_label("RM  /  PRECISION",18,ACCENT))
+	column.add_child(_label("急停射击训练",56))
+	_spacer(column,34)
+	_focus(_action(column,"start","开始训练",func(): setup_requested.emit(),true))
+	_action(column,"help","操作说明",show_help)
+	_action(column,"quit","退出游戏",func(): quit_requested.emit())
 
-func show_buy(locked: bool, weapon_id: String, money: int) -> void:
-	hud.show()
-	shop_locked = locked
+func _card(title: String, texture_path: String, height: float, callback: Callable) -> Button:
+	var button := _button("",callback)
+	button.toggle_mode = true
+	button.custom_minimum_size.y = height
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left",10)
+	margin.add_theme_constant_override("margin_right",10)
+	margin.add_theme_constant_override("margin_top",10)
+	margin.add_theme_constant_override("margin_bottom",10)
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(margin)
+	var column := VBoxContainer.new()
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_child(column)
+	var image := TextureRect.new()
+	image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED if height > 160 else TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	image.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	image.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if ResourceLoader.exists(texture_path): image.texture = load(texture_path)
+	column.add_child(image)
+	var label := _label(title,22)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(label)
+	button.tooltip_text = title
+	return button
+
+func show_setup(map_id: String, weapon_id: String) -> void:
+	selected_map = map_id
 	selected_weapon = weapon_id
+	map_buttons.clear()
 	weapon_buttons.clear()
-	var column := _clear_overlay("buy")
-	shop_countdown = _label("01 / 装备准备     ·     倒计时结束后自动开始", 17, ACCENT)
-	column.add_child(shop_countdown)
-	column.add_child(_label("选择这回合的节奏", 32))
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	column.add_child(row)
-	for id in ["deagle", "ak47", "m4a1"]:
-		var data: Dictionary = Rules.WEAPONS[id]
-		var cost: String = "默认免费" if id == "deagle" else "$%d" % data.price
-		var button := _button("%s\n%s\n%d 发 / %d ms\n仅爆头可击杀" % [data.name, cost, data.mag_size, data.interval_ms], _select_weapon.bind(id))
-		button.custom_minimum_size = Vector2(266, 150)
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.disabled = locked
-		row.add_child(button)
+	var column := _clear("setup",1088)
+	var header := HBoxContainer.new()
+	column.add_child(header)
+	var title := _label("准备训练",36)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title)
+	_action(header,"back","返回",func(): menu_requested.emit())
+	column.add_child(_label("选择场景",20,MUTED))
+	var maps := HBoxContainer.new()
+	maps.add_theme_constant_override("separation",16)
+	column.add_child(maps)
+	for id: String in Maps.MAPS:
+		var data: Dictionary = Maps.MAPS[id]
+		var button := _card(data.name,data.preview,180,func(): _select(id,selected_weapon))
+		maps.add_child(button)
+		map_buttons[id] = button
+	column.add_child(_label("选择枪械",20,MUTED))
+	var guns := HBoxContainer.new()
+	guns.add_theme_constant_override("separation",16)
+	column.add_child(guns)
+	for id: String in Rules.WEAPONS:
+		var button := _card(Rules.WEAPONS[id].name,"res://assets/ui/"+id+".png",142,func(): _select(selected_map,id))
+		guns.add_child(button)
 		weapon_buttons[id] = button
-	shop_money = _label("", 20, AMBER)
-	column.add_child(shop_money)
-	shop_confirm = _button("确认装备并进入场地", func(): purchase_requested.emit(selected_weapon))
-	shop_confirm.disabled = locked
-	column.add_child(shop_confirm)
-	column.add_child(_button("返回场地  ·  B 可重新查看装备", func(): shop_closed.emit()))
-	column.add_child(_label("每回合只能确认一次。未确认则保留免费沙鹰。\n只有爆头才能击杀；准备阶段不能开火。", 16, MUTED))
-	_update_purchase_preview()
-	if locked:
-		shop_money.text = "装备已确认  /  剩余资金 $%d" % money
+	var footer := HBoxContainer.new()
+	footer.alignment = BoxContainer.ALIGNMENT_END
+	column.add_child(footer)
+	var launch := _action(footer,"launch","开始训练   →",func(): launch_requested.emit(),true)
+	launch.custom_minimum_size.x = 280
+	_update_selection()
+	_focus(map_buttons[selected_map])
 
-func _select_weapon(id: String) -> void:
-	selected_weapon = id
-	_update_purchase_preview()
+func _select(map_id: String, weapon_id: String) -> void:
+	selected_map = map_id
+	selected_weapon = weapon_id
+	_update_selection()
+	selection_changed.emit(map_id,weapon_id)
 
-func _update_purchase_preview() -> void:
-	for id in weapon_buttons:
-		weapon_buttons[id].modulate = ACCENT if id == selected_weapon else Color.WHITE
-	if not shop_locked:
-		var price: int = 0 if selected_weapon == "deagle" else Rules.WEAPONS[selected_weapon].price
-		shop_money.text = "本次支出 $%d  /  剩余资金 $%d" % [price, 5000 - price]
+func _update_selection() -> void:
+	for id in map_buttons: map_buttons[id].set_pressed_no_signal(id == selected_map)
+	for id in weapon_buttons: weapon_buttons[id].set_pressed_no_signal(id == selected_weapon)
+
+func show_countdown(value: int) -> void:
+	var column := _clear("countdown",200)
+	overlay.get_child(0).color = Color(0,0,0,0.15)
+	countdown = _label(str(value),96,ACCENT)
+	countdown.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(countdown)
+
+func update_countdown(value: int) -> void:
+	if overlay_kind == "countdown": countdown.text = str(maxi(1,value))
 
 func hide_overlay() -> void:
 	overlay.hide()
 	overlay_kind = ""
 	hud.show()
+	toast.text = ""
+	toast_left = 0
+	crosshair.hit_left = 0
 
 func show_pause() -> void:
-	var column := _clear_overlay("pause")
-	column.add_child(_label("PAUSED / 训练已暂停", 17, ACCENT))
-	column.add_child(_label("停一下，找回节奏。", 36))
-	column.add_child(_label("回合、换弹、射击冷却与靶子计时均已冻结。", 20, MUTED))
-	column.add_child(_button("继续  /  Esc", func(): resume_requested.emit()))
-	column.add_child(_button("返回主菜单", func(): menu_requested.emit()))
+	var column := _clear("pause",480)
+	column.add_child(_label("已暂停",42))
+	_spacer(column,16)
+	_focus(_action(column,"resume","继续训练",func(): resume_requested.emit(),true))
+	_action(column,"help","操作说明",show_help)
+	_action(column,"menu","返回主菜单",func(): menu_requested.emit())
+
+func show_help() -> void:
+	help_origin = overlay_kind
+	var column := _clear("help",680)
+	column.add_child(_label("操作说明",36))
+	column.add_child(_label("W A S D     移动\n鼠标           瞄准\n左键           单发射击\nR                换弹\nEsc             暂停 / 返回",24))
+	column.add_child(_label("停稳后开火。只有头部命中能够击倒目标。",22,ACCENT))
+	_focus(_action(column,"back","返回",close_help,true))
+
+func close_help() -> void:
+	if help_origin == "pause": show_pause()
+	else: show_menu()
+	if action_buttons.has("help"): _focus(action_buttons.help)
 
 func show_results(data: Dictionary) -> void:
-	hud.hide()
-	var column := _clear_overlay("results")
-	column.add_child(_label("SESSION COMPLETE / 本轮完成", 17, ACCENT))
-	column.add_child(_label("每次停稳，都是进步。", 36))
-	column.add_child(_label(data.reason, 20, AMBER))
-	column.add_child(HSeparator.new())
-	column.add_child(_label("%02d 击杀       %.1f%% 命中率       %.1f%% 爆头率" % [data.kills, data.accuracy, data.headshot_rate], 29))
-	column.add_child(_label("实际发射 %d 发   /   命中 %d 发   /   爆头击杀 %d\n使用武器：%s" % [data.shots, data.hits, data.headshots, data.weapon], 20, MUTED))
-	column.add_child(_button("再练一轮  →", func(): start_requested.emit()))
-	column.add_child(_button("返回主菜单", func(): menu_requested.emit()))
+	var column := _clear("results",720)
+	column.add_child(_label("训练完成",42))
+	column.add_child(_label(data.reason,22,MUTED))
+	_spacer(column,18)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation",80)
+	column.add_child(row)
+	for metric in [["击杀",str(data.kills)],["命中率","%.1f%%" % data.accuracy]]:
+		var block := VBoxContainer.new()
+		row.add_child(block)
+		block.add_child(_label(metric[0],22,MUTED))
+		block.add_child(_label(metric[1],56,TEXT))
+	_spacer(column,18)
+	_focus(_action(column,"replay","再练一轮",func(): replay_requested.emit(),true))
+	_action(column,"setup","更换配置",func(): setup_requested.emit())
 
 func update_status(data: Dictionary) -> void:
-	if overlay_kind == "buy" and is_instance_valid(shop_countdown):
-		shop_countdown.text = "01 / 装备准备     ·     %.1f 秒后自动开始训练" % data.remaining
-	heading.text = "RM / 准备阶段" if data.phase == "buy" else "RM / 急停训练"
-	clock_label.text = "%04.1f s" % maxf(0.0, data.remaining)
-	scores.text = "击杀  %d     命中率  %.1f%%" % [data.kills, data.accuracy]
-	ammo.text = "%s  %02d / %02d" % [data.weapon, data.mag, data.reserve]
-	vitals.text = "生命 %d" % data.hp
-	velocity_label.text = "速度比  %.3f / 0.340" % data.speed
-	speed_bar.value = data.speed
-	permit_label.text = data.permission
-	permit_label.add_theme_color_override("font_color", ACCENT if data.ready else AMBER)
-	crosshair.add_theme_color_override("font_color", ACCENT if data.ready else AMBER)
-	instructions.text = "WASD 移动 · B 装备 · Esc 暂停" if data.phase == "buy" else "WASD 移动 · 左键单发 · R 换弹 · Esc 暂停"
+	var seconds := ceili(maxf(0,data.remaining))
+	clock_label.text = "%d:%02d" % [seconds/60,seconds%60]
+	clock_label.add_theme_color_override("font_color",ACCENT if seconds <= 10 else TEXT)
+	ammo.text = "%02d / %02d" % [data.mag,data.reserve]
+	reload_label.text = "换弹中" if data.reloading else ""
+	crosshair.can_fire = data.ready
 
-func notify(message: String, duration: float = 2.0) -> void:
+func notify(message: String, duration := 0.6) -> void:
+	if toast_left > 0: return
 	toast.text = message
 	toast_left = duration
 
-func show_hit(headshot: bool, killed: bool) -> void:
-	hit_marker.text = "×"
-	hit_marker.add_theme_color_override("font_color", AMBER if headshot else ACCENT)
-	hit_marker.show()
-	marker_left = 0.18
-	if killed:
-		notify("爆头击杀", 0.8)
-	else:
-		notify("非头部命中 · 无伤害", 0.6)
+func show_hit(headshot: bool, _killed: bool) -> void:
+	crosshair.show_hit(headshot)
 
 func _process(delta: float) -> void:
-	if get_tree().paused:
-		return
-	toast_left = maxf(0.0, toast_left - delta)
-	marker_left = maxf(0.0, marker_left - delta)
-	if toast_left <= 0.0:
-		toast.text = ""
-	if marker_left <= 0.0:
-		hit_marker.hide()
+	if get_tree().paused: return
+	toast_left = maxf(0,toast_left-delta)
+	if toast_left <= 0: toast.text = ""

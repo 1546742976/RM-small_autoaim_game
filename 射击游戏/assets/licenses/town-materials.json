@@ -1,0 +1,62 @@
+[
+  {
+    "id": "PavingStones036",
+    "author": "ambientCG / Lennart Demes",
+    "source": "https://ambientcg.com/a/PavingStones036",
+    "download": "https://ambientcg.com/get?file=PavingStones036_2K-JPG.zip",
+    "license": "CC0-1.0",
+    "license_url": "https://docs.ambientcg.com/license/",
+    "sha256_zip": "4890692b3c365830c7f9c718b16a0e18931dfd6ae2ac33a1a84ea65653457e2e",
+    "files": [
+      "stone_Color.jpg",
+      "stone_NormalGL.jpg",
+      "stone_Roughness.jpg"
+    ],
+    "modifications": "Selected 2K color, OpenGL normal and roughness maps; in-engine tint and tiling."
+  },
+  {
+    "id": "Plaster001",
+    "author": "ambientCG / Lennart Demes",
+    "source": "https://ambientcg.com/a/Plaster001",
+    "download": "https://ambientcg.com/get?file=Plaster001_2K-JPG.zip",
+    "license": "CC0-1.0",
+    "license_url": "https://docs.ambientcg.com/license/",
+    "sha256_zip": "9894765632cfa0feb3349b581825a9c224dee9efa1cebb8aba63bd1c7bc9fc3c",
+    "files": [
+      "plaster_Color.jpg",
+      "plaster_NormalGL.jpg",
+      "plaster_Roughness.jpg"
+    ],
+    "modifications": "Selected 2K color, OpenGL normal and roughness maps; in-engine tint and tiling."
+  },
+  {
+    "id": "WoodFloor051",
+    "author": "ambientCG / Lennart Demes",
+    "source": "https://ambientcg.com/a/WoodFloor051",
+    "download": "https://ambientcg.com/get?file=WoodFloor051_2K-JPG.zip",
+    "license": "CC0-1.0",
+    "license_url": "https://docs.ambientcg.com/license/",
+    "sha256_zip": "eb7d1cee763bb17a59feb89b0fd16398d3673a071a76fed289111cf81013ac25",
+    "files": [
+      "wood_Color.jpg",
+      "wood_NormalGL.jpg",
+      "wood_Roughness.jpg"
+    ],
+    "modifications": "Selected 2K color, OpenGL normal and roughness maps; in-engine tint and tiling."
+  },
+  {
+    "id": "RoofingTiles012A",
+    "author": "ambientCG / Lennart Demes",
+    "source": "https://ambientcg.com/a/RoofingTiles012A",
+    "download": "https://ambientcg.com/get?file=RoofingTiles012A_2K-JPG.zip",
+    "license": "CC0-1.0",
+    "license_url": "https://docs.ambientcg.com/license/",
+    "sha256_zip": "71cf14afa940d20ea88cdc254072fe7c33152a6f2902fd16ff93117a6a1ca66e",
+    "files": [
+      "roof_Color.jpg",
+      "roof_NormalGL.jpg",
+      "roof_Roughness.jpg"
+    ],
+    "modifications": "Selected 2K color, OpenGL normal and roughness maps; in-engine tint and tiling."
+  }
+]

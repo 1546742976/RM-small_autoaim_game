@@ -31,7 +31,6 @@ func _run() -> void:
 	test_reload()
 	test_complete_ammo_cycle()
 	test_damage()
-	test_purchases()
 	if failures == 0:
 		print("PASS: %d rule checks" % checks)
 	else:
@@ -128,19 +127,3 @@ func test_damage() -> void:
 	for i in 100:
 		hp = Rules.damage_result(hp, false).hp
 	check(hp == 100, "repeated non-head hits never accumulate damage")
-
-func test_purchases() -> void:
-	var result: Dictionary = Rules.purchase("deagle", 5000, false)
-	check(result.ok and result.money == 5000, "free default pistol")
-	result = Rules.purchase("ak47", 5000, false)
-	check(result.ok and result.money == 2300 and result.weapon == "ak47", "AK price")
-	result = Rules.purchase("m4a1", 5000, false)
-	check(result.ok and result.money == 1900, "M4 price")
-	result = Rules.purchase("m4a1", 1900, true)
-	check(not result.ok and result.reason == "already_bought" and result.money == 1900, "duplicate purchase cannot deduct money")
-	result = Rules.purchase("m4a1", 3000, false)
-	check(not result.ok and result.reason == "insufficient_funds" and result.money == 3000, "cannot overspend")
-	result = Rules.purchase("deagle", 0, false)
-	check(result.ok and result.money == 0, "default pistol requires no funds")
-	result = Rules.purchase("unknown", 5000, false)
-	check(not result.ok and result.reason == "unknown_weapon", "only three permitted weapons")

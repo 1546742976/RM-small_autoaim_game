@@ -14,7 +14,8 @@ var _time := 0.0
 var _respawn_left := 0.0
 var _visuals: Node3D
 var _regions: Array[Dictionary] = []
-var _label: Label3D
+var path_start := Vector3.ZERO
+var path_end := Vector3.ZERO
 
 func setup(index: int, is_moving: bool) -> void:
 	target_index = index
@@ -36,16 +37,7 @@ func _ready() -> void:
 		_region(side + "Thigh", side + "UpLeg", side + "Leg", 0.085)
 		_region(side + "Leg", side + "Leg", side + "Foot", 0.062)
 		_region(side + "Foot", side + "Foot", side + "ToeBase", 0.065)
-	_label = Label3D.new()
-	_label.position = Vector3(0, 2.15, 0)
-	_label.font_size = 40
-	_label.pixel_size = 0.004
-	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_label.modulate = Color("5bdacf") if moving else Color("f2bb7c")
-	_label.outline_size = 8
-	add_child(_label)
 	_sync_regions()
-	_update_label()
 
 func _physics_process(delta: float) -> void:
 	if not active:
@@ -58,7 +50,7 @@ func _physics_process(delta: float) -> void:
 			_restore()
 		return
 	if moving:
-		position.x = _origin.x + sin(_time * 0.8) * 2.2
+		position = path_start.lerp(path_end, (sin(_time * 0.8) + 1.0) * 0.5)
 	_visuals.sample(_time, -1.0)
 	_sync_regions()
 
@@ -72,7 +64,6 @@ func apply_hit(headshot: bool) -> Dictionary:
 		_respawn_left = 1.0
 		for region in _regions:
 			region.area.collision_layer = 0
-		_update_label()
 	hit.emit(headshot, result.killed)
 	return {"hit": true, "killed": result.killed, "headshot": headshot}
 
@@ -89,10 +80,6 @@ func _restore() -> void:
 	_sync_regions()
 	for region in _regions:
 		region.area.collision_layer = 2
-	_update_label()
-
-func _update_label() -> void:
-	_label.text = "%02d / %s" % [target_index + 1, ("TRACK" if moving else "STATIC") if alive else "RESET"]
 
 func _region(region_name: String, start: String, end: String, radius: float, head := false) -> void:
 	var area := Area3D.new()

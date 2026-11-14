@@ -1,7 +1,7 @@
 extends Node
 ## Opt-in integration checks: run the game with -- --smoke-test.
 ## Also runs from the Windows export. Optional --capture-dir=<absolute folder>
-## saves rendered menu/buy/training/pause/results captures on graphical runs.
+## saves rendered menu/setup/training/pause/results captures on graphical runs.
 
 var checks: int = 0
 var failures: int = 0
@@ -64,26 +64,55 @@ func run(controller: Node3D) -> void:
 	check(game.arena.targets.size() == 6, "six training targets exist")
 	await capture("01-menu")
 
-	# UI signals exercise the same routes used by visible menu/shop buttons.
-	game.ui.start_requested.emit()
-	check(game.phase == "buy" and game.remaining == 15.0, "start enters fifteen-second buy")
-	check(game.money == 5000 and game.hp == 100, "round starting resources")
-	check(game.weapon.current_weapon == "deagle" and game.weapon.mag == 7 and game.weapon.reserve == 14, "free default pistol and ammunition")
-	check(game.weapon.try_fire(0.0) == "not_training" and game.shots == 0, "buy phase denies fire")
-	game.ui.purchase_requested.emit("deagle")
-	check(game.money == 5000 and game.bought, "confirming default pistol is free")
-	game.start_round()
-	await frames()
-	await capture("02-buy")
-	game.ui.purchase_requested.emit("ak47")
-	check(game.money == 2300 and game.bought, "AK bought once")
-	game.ui.purchase_requested.emit("m4a1")
-	check(game.money == 2300 and game.weapon.current_weapon == "ak47", "repeated purchase cannot charge or replace")
+	game.ui.action_buttons.help.pressed.emit()
+	check(game.ui.overlay_kind == "help" and not get_tree().paused, "menu help preserves unpaused state")
+	await capture("01-help")
+	game.ui.close_help()
+	game.ui.action_buttons.start.pressed.emit()
+	check(game.phase == "setup" and game.ui.overlay_kind == "setup", "start opens untimed setup")
+	check(game.selected_map == "old_town" and game.selected_weapon == "deagle", "first launch defaults")
+	await capture("02-setup")
+	game.ui.map_buttons.training_hall.pressed.emit()
+	game.ui.weapon_buttons.ak47.pressed.emit()
+	check(game.selected_map == "training_hall" and game.selected_weapon == "ak47", "map and weapon cards select loadout")
+	await frames(3)
+	game.ui.weapon_buttons.m4a1.grab_focus()
+	Input.flush_buffered_events()
+	var enter := InputEventKey.new()
+	enter.keycode = KEY_ENTER
+	enter.pressed = true
+	Input.parse_input_event(enter)
+	Input.flush_buffered_events()
+	enter = enter.duplicate()
+	enter.pressed = false
+	Input.parse_input_event(enter)
+	Input.flush_buffered_events()
+	await frames(3)
+	check(game.selected_weapon == "m4a1", "keyboard Enter activates weapon card")
+	game.ui.weapon_buttons.ak47.pressed.emit()
+	game.ui.action_buttons.launch.pressed.emit()
+	check(game.phase == "countdown" and game.remaining == 3.0, "launch starts three-second countdown")
+	check(game.weapon.try_fire(0.0) == "not_training" and not game.weapon.start_reload(), "countdown blocks fire and reload")
+	var countdown_position: Vector3 = game.player.position
+	Input.action_press("move_forward")
+	await frames(10)
+	Input.action_release("move_forward")
+	check(game.player.position.is_equal_approx(countdown_position) and not game.arena.targets[3].active, "countdown blocks movement and targets")
+	await capture("02-countdown")
+	game.pause_game()
+	var frozen_countdown: float = game.remaining
+	game.ui.show_help()
+	await frames(8)
+	check(game.remaining == frozen_countdown and get_tree().paused, "countdown and help freeze simulation")
+	game.ui.close_help()
+	check(game.ui.overlay_kind == "pause" and get_tree().paused, "help returns to pause without resuming")
+	game.resume_game()
+	check(game.ui.overlay_kind == "countdown", "resume restores countdown overlay")
 	game.remaining = 0.001
 	await frames()
-	check(game.phase == "training" and game.remaining <= 60.0 and game.remaining > 59.0, "buy timeout automatically starts sixty-second training")
-	check(game.weapon.mag == 25 and game.weapon.reserve == 50 and game.weapon.active, "training starts with chosen weapon three magazines")
-	check(game.player.position.distance_to(Vector3(0, 0, 9)) < 0.1, "training resets player position")
+	check(game.phase == "training" and game.remaining > 59.0, "countdown starts sixty-second training")
+	check(game.weapon.mag == 25 and game.weapon.reserve == 50 and game.weapon.active, "chosen weapon starts with three magazines")
+	check(game.player.position.distance_to(game.arena.get_spawn().origin) < 0.1, "map provides player spawn")
 	check(game.arena.targets[0].active and game.arena.targets[3].moving, "static and moving targets active")
 	await frames(3)
 	await capture("03-training")
@@ -184,18 +213,18 @@ func run(controller: Node3D) -> void:
 	check(game.shots == shots_before_last + 1 and game.kills == kills_before_last + 1, "last bullet counted before results")
 	check(game.weapon.mag == 0 and game.weapon.reserve == 0 and not game.weapon.active, "depleted weapon disabled")
 	await capture("05-results")
-	game.ui.start_requested.emit()
-	check(game.phase == "buy" and game.money == 5000 and game.hp == 100 and not game.bought, "restart resets all resources")
-	check(game.shots == 0 and game.hits == 0 and game.kills == 0 and game.headshots == 0, "restart clears score")
-	check(game.weapon.current_weapon == "deagle" and game.weapon.mag == 7 and game.weapon.reserve == 14, "restart restores default weapon")
+	game.ui.action_buttons.replay.pressed.emit()
+	check(game.phase == "countdown" and game.selected_map == "training_hall", "replay keeps map and enters countdown")
+	check(game.shots == 0 and game.hits == 0 and game.kills == 0 and game.headshots == 0, "restart clears scores")
+	check(game.weapon.current_weapon == "ak47" and game.weapon.mag == 25 and game.weapon.reserve == 50, "replay restores selected weapon ammo")
 	game.remaining = 0.001
 	await frames()
-	check(game.phase == "training", "unconfirmed purchase retains free default")
 	game.remaining = 0.001
 	await frames()
 	check(game.phase == "results", "training countdown ends round")
 	check(game.accuracy() == 0.0 and game.headshot_rate() == 0.0, "empty round statistics are zero")
 	await check_models_and_regions()
+	await check_maps_and_loadouts()
 	Input.action_release("move_right")
 	Input.action_release("move_left")
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -208,8 +237,7 @@ func run(controller: Node3D) -> void:
 	get_tree().quit(0 if failures == 0 else 1)
 
 func check_models_and_regions() -> void:
-	game.start_round()
-	game.begin_training()
+	equip("training_hall","ak47")
 	game.ui.toast.visible = false
 	await frames(4)
 	# Every rendered limb has a blocking ray region, and a body hit never kills.
@@ -277,8 +305,7 @@ func check_models_and_regions() -> void:
 		check(game.weapon.is_reloading() and view.reload_progress >= 0.0, id + " auto reload uses same visual")
 		game.finish_round("test interruption")
 		check(view.reload_progress < 0.0 and view.magazine.transform.is_equal_approx(view.magazine_home), id + " round end restores pose")
-		game.start_round()
-		game.begin_training()
+		equip("training_hall","ak47")
 		game.ui.toast.visible = false
 	game.weapon.mag = 1
 	if DisplayServer.get_name() == "headless":
@@ -312,3 +339,96 @@ func check_models_and_regions() -> void:
 	check(pose_before == game.player.view.magazine.transform and progress_before == game.player.view.reload_progress, "pause freezes visual reload pose")
 	game.show_menu()
 	check(game.player.view.reload_progress < 0.0, "menu restores reload pose")
+
+func equip(map_id: String, weapon_id: String) -> void:
+	game.show_setup()
+	game.ui._select(map_id,weapon_id)
+	game.start_round()
+	game.begin_training()
+
+func check_maps_and_loadouts() -> void:
+	for map_id: String in ["old_town","training_hall"]:
+		for id: String in ["deagle","ak47","m4a1"]:
+			equip(map_id,id)
+			await frames(4)
+			check(game.arena.get_child_count() == 1 and game.arena.targets.size() == 6, map_id+" exactly one map and six targets")
+			check(game.weapon.current_weapon == id and game.weapon.mag == game.weapon.get_data().mag_size, map_id+" free selection "+id)
+			check(game.player.position.distance_to(game.arena.get_spawn().origin) < 0.1, map_id+" correct spawn")
+			game._select_loadout("old_town","m4a1")
+			check(game.selected_map == map_id and game.selected_weapon == id, "training locks loadout")
+			game.pause_game()
+			check(not game.ui.hud.visible, "pause hides minimal HUD")
+			game.resume_game()
+			var hud_text := gather_text(game.ui.root)
+			for forbidden in ["生命","速度","击杀","命中率","购买","爆头","WASD"]:
+				check(not forbidden in hud_text,"minimal gameplay HUD omits "+forbidden)
+			game.finish_round("时间到")
+			game.ui.replay_requested.emit()
+			check(game.phase == "countdown" and game.weapon.mag == game.weapon.get_data().mag_size, "replay fully resets "+map_id+id)
+			game.show_menu()
+			check(game.phase == "menu" and not get_tree().paused and not game.player.active, "menu stops round")
+		equip(map_id,"ak47")
+		await frames(5)
+		await capture(map_id+"-training")
+		# All visible targets can be shot from designed clear sightlines.
+		for i in 6:
+			game.player.reset_position(game.arena.map_root.test_views[i])
+			await frames()
+			var target: Node3D = game.arena.targets[i]
+			var before_hits: int = game.hits
+			await shoot_at(target,"Body")
+			check(game.hits == before_hits+1 and target.alive and target.hp == 100, map_id+" reachable nonlethal body "+str(i))
+			await shoot_at(target,"Head")
+			check(not target.alive, map_id+" reachable head "+str(i))
+		# Check the full swept path against world solids, above the floor.
+		var capsule := CapsuleShape3D.new()
+		capsule.radius = 0.34
+		capsule.height = 1.7
+		for target in game.arena.targets:
+			for step in 17:
+				var q := PhysicsShapeQueryParameters3D.new()
+				q.shape = capsule
+				q.collision_mask = 1
+				q.transform.origin = target.path_start.lerp(target.path_end,float(step)/16)+Vector3(0,0.95,0)
+				check(game.get_world_3d().direct_space_state.intersect_shape(q).is_empty(),map_id+" target route clears buildings")
+		# Walk, using CharacterBody collision, around the complete route.
+		equip(map_id,"ak47")
+		await frames(3)
+		var path: Array = game.arena.map_root.route
+		game.player.reset_position(path[0])
+		for index in range(1,path.size()):
+			var destination: Vector3 = path[index]
+			var direction: Vector3 = destination-game.player.position
+			game.player.rotation.y = atan2(-direction.x,-direction.z)
+			Input.action_press("move_forward")
+			var ticks := 0
+			while Vector2(game.player.position.x-destination.x,game.player.position.z-destination.z).length()>0.6 and ticks<1100:
+				await frames(1)
+				ticks += 1
+			Input.action_release("move_forward")
+			await frames(48)
+			check(ticks<1100 and game.player.position.y>-0.1 and game.player.position.y<0.1,map_id+" walkable flat loop segment "+str(index))
+		game.player.reset_position(Vector3(0,0.02,26 if map_id == "old_town" else 16))
+		var before: int = game.hits
+		await shoot_at(game.arena.targets[0],"Body")
+		check(game.hits == before,map_id+" boundary blocks bullets")
+		game.show_setup()
+		await frames()
+		check_ui_content()
+	game.show_menu()
+
+func check_ui_content() -> void:
+	var all_text := gather_text(game.ui.root)
+	for forbidden in ["生命","速度比","命中率","击杀","资金","价格","ms","购买","爆头率"]:
+		check(not forbidden in all_text,"setup removes irrelevant display "+forbidden)
+	var bounds := get_viewport().get_visible_rect()
+	for button in game.ui.map_buttons.values()+game.ui.weapon_buttons.values()+game.ui.action_buttons.values():
+		check(bounds.encloses(button.get_global_rect()),"setup control stays within window")
+	check(get_viewport().gui_get_focus_owner() != null,"keyboard focus exists")
+
+func gather_text(node: Node) -> String:
+	var text := ""
+	if node is Control and not node.is_visible_in_tree(): return text
+	if node is Label or node is Button: text = node.text+" "
+	for child in node.get_children(): text += gather_text(child)
+	return text

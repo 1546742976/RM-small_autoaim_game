@@ -81,9 +81,9 @@ func get_speed_ratio() -> float:
 	return _horizontal_speed / MAX_SPEED
 
 
-func reset_position(pos: Vector3 = Vector3(0, 0.02, 9)) -> void:
+func reset_position(pos: Vector3 = Vector3(0, 0.02, 9), yaw: float = 0.0) -> void:
 	position = pos
-	rotation = Vector3.ZERO
+	rotation = Vector3(0, yaw, 0)
 	_pitch = 0.0
 	velocity = Vector3.ZERO
 	_horizontal_speed = 0.0
