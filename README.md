@@ -28,7 +28,7 @@
 |---|---|
 | WASD | 移动，松键自然减速，反向按键更快减速 |
 | 鼠标 | 瞄准 |
-| 左键 | 每次点击最多尝试发射一发 |
+| 左键 | AK、M4 可长按持续射击；沙鹰每次点击一发 |
 | R | 手动换弹 |
 | Esc | 暂停／继续；准备页返回菜单，操作说明返回原页 |
 | Tab / Shift+Tab、Enter / Space | 菜单焦点移动与确认 |
@@ -54,7 +54,7 @@ B、E 没有游戏交互。切换到其他窗口会自动暂停。暂停冻结�
 
 散布半径为沿原瞄准方向距离的 **20%**：在前方 10 米的垂直截面上，落点距离中心不超过 2 米；等效散布锥半角约 11.31°。使用圆盘均匀面积采样 `r = 0.2 × sqrt(U)`、`θ = 2πV`，将偏移转换为射线方向。精度读取实际发射瞬间的真实水平速度，低于门槛立即恢复，不增加恢复延迟。
 
-仍须满足训练阶段、冷却结束、弹夹非空且未在换弹。被拒绝的点击不扣弹、不计射击次数、不排队补射，也不消耗散布随机数；精准射击同样不消耗随机数。射线最大长度仍为 100 米，由墙体及人物身体阻挡，不改变相机方向，不增加弹道下坠或累积后坐力。
+仍须满足训练阶段、冷却结束、弹夹非空且未在换弹。被拒绝的短按不扣弹、不计射击次数、不排队补射，也不消耗散布随机数；步枪持续按住时按射速等待下一发，松开后不补射。精准射击同样不消耗随机数。射线最大长度仍为 100 米，由墙体及人物身体阻挡，不改变相机方向，不增加弹道下坠或累积后坐力。
 
 | 免费武器 | 弹夹 / 备弹 | 射击间隔 | 换弹时间 |
 |---|---:|---:|---:|
@@ -62,7 +62,11 @@ B、E 没有游戏交互。切换到其他窗口会自动暂停。暂停冻结�
 | AK-47 | 25 / 50 | 100 ms | 2.5 秒 |
 | M4A1 | 30 / 60 | 90 ms | 3.1 秒 |
 
-每回合总弹药为三个满弹夹。提前换弹保留余弹，只扣除补足所需备弹；备弹不足则装入剩余弹药。空弹夹且有备弹时自动换弹，满弹夹或无备弹不启动换弹。换弹中可移动、不能开火，结束时才补弹。三枪分别使用对应的取匣、装匣、滑套／拉机柄动作，动作不改变镜头或命中判定。
+每回合总弹药为三个满弹夹。提前换弹保留余弹，只扣除补足所需备弹；备弹不足则装入剩余弹药。空弹夹且有备弹时自动换弹，满弹夹或无备弹不启动换弹。换弹中可移动、不能开火，结束时才补弹。
+
+AK、M4 按住左键按各自射速持续射击，松开即停止；沙鹰长按只发射一发。手动或自动换弹都会结束本次持续射击，换弹完成后必须重新按下左键，换弹中的点击不会排队。暂停、结算、菜单和控制权切换也会清除长按状态。程序接口仍为一次 `act` 最多一发。
+
+三枪使用统一绑定的战术长袖、全指手套双手，分别提供空仓与提前换弹动作。空仓换弹包含机械收尾，提前换弹省略该动作；两种动作均保持表中时长。取匣、插匣、机械收尾配有同步音效。动画与音效跟随换弹时钟，暂停时冻结，中断时复位；不改变镜头或命中判定。
 
 移动最大速度 6 m/s，普通加速度 30 m/s²，松键减速度 12 m/s²，反向加速度 48 m/s²；物理频率 120 Hz。
 
@@ -111,6 +115,8 @@ python tools/acquire_map_materials.py
 python tools/acquire_visual_assets.py --blender
 $blenderExe = '.\tools\cache\visuals\blender-4.5.3-windows-x64\blender.exe'
 & $blenderExe --background --python-exit-code 1 --python tools/prepare_visuals.py
+& $blenderExe --background --python-exit-code 1 --python tools/prepare_first_person.py
+python tools/prepare_reload_audio.py
 & $blenderExe --background --python-exit-code 1 --python tools/prepare_actor.py
 & $godotExe --path '.\射击游戏' -- --previews "--capture-dir=$PWD/射击游戏/assets/ui"
 & $godotExe --headless --path '.\射击游戏' --editor --import --quit
@@ -121,6 +127,22 @@ $blenderExe = '.\tools\cache\visuals\blender-4.5.3-windows-x64\blender.exe'
 本次规则检查包含固定种子的 10,000 发圆盘分布检查；场景检查覆盖两图 × 三枪的精度边界、真实散布头身命中、墙体遮挡和最后一发结算。独立 EXE 使用 `-- --smoke-test --capture-dir=<绝对路径>` 可执行相同场景检查并保存画面，详见 `VALIDATION.md`。
 
 `--showcase --capture-dir=<绝对路径>` 录制流程及地图截图；使用 Godot `--write-movie` 可输出固定步长 AVI。`--benchmark` 独立测量两图、两种尺寸，各预热 240 帧并测量 30 秒，包含行走与换弹。录制时的帧率不当作实时性能证据。
+
+第一人称版本的检查与演示可通过以下命令重新执行（图形检查使用导出的 EXE）：
+
+```powershell
+python tools/update_asset_inventory.py
+python tools/run_viewmodel_validation.py --engine builds/windows/RMPrecisionLab.exe --mode checks
+python tools/run_viewmodel_validation.py --engine builds/windows/RMPrecisionLab.exe --mode captures
+python tools/run_viewmodel_validation.py --engine builds/windows/RMPrecisionLab.exe --mode records
+python tools/run_viewmodel_validation.py --engine builds/windows/RMPrecisionLab.exe --mode benchmark
+python tools/run_export_regression.py
+# 联调前按 sdk/cpp/README.md 构建 C++ 客户端到 artifacts/cpp-build
+python tools/run_control_validation.py --game builds/windows/RMPrecisionLab.exe --export --case probe --resolution 1280x720 --out artifacts/first-person/cpp-probe
+python tools/package_release.py
+```
+
+结果存放于 `artifacts/first-person/`；打包前还需完成最终 EXE 的输入、完整流程和程序控制回归，并写入实际画面检查记录。模型制作源文件另附 `builds/RMPrecisionLab-first-person-source.zip`，包含三份可编辑 Blender 文件、制作脚本及许可证。GLB 动画采用 120 Hz 烘焙与导入，运行时无需 Blender。
 
 ## 许可证
 

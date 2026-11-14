@@ -31,6 +31,7 @@ func _run() -> void:
 	test_cooldowns()
 	test_spread()
 	test_reload()
+	test_reload_identity()
 	test_complete_ammo_cycle()
 	test_damage()
 	if failures == 0:
@@ -111,6 +112,32 @@ func test_complete_ammo_cycle() -> void:
 		check(weapon.mag == 0 and weapon.reserve == 0 and not weapon.is_reloading(), id + " ammo finishes without extra reload")
 		check(weapon.try_fire() == "mag_empty", id + " empty magazine rejects")
 		check(observed.shots == total and observed.depleted == 1, id + " empty click cannot repeat shots/depletion")
+		weapon.free()
+
+
+func test_reload_identity() -> void:
+	for id: String in Rules.WEAPONS:
+		var weapon: Node = new_weapon(id)
+		var starts := [0]
+		weapon.reload_started.connect(func() -> void: starts[0] += 1)
+		check(not weapon.start_reload() and weapon.reload_serial == 0, id + " denied reload has no identity")
+		weapon.mag = 2
+		check(weapon.start_reload() and weapon.reload_kind == "tactical", id + " partial magazine selects tactical clip")
+		var serial: int = weapon.reload_serial
+		check(starts[0] == 1, id + " accepted reload emits once")
+		check(not weapon.start_reload() and weapon.reload_serial == serial and starts[0] == 1, id + " rejected repeated reload preserves identity")
+		weapon.advance_ms(float(weapon.get_data().reload_ms) - 0.1)
+		check(weapon.mag == 2 and weapon.reload_kind == "tactical", id + " tactical timing stays unchanged")
+		weapon.advance_ms(0.1)
+		check(weapon.mag == int(weapon.get_data().mag_size), id + " tactical clip loads at exact duration")
+		weapon.mag = 1
+		weapon.try_fire()
+		check(weapon.reload_kind == "empty" and weapon.reload_serial == serial + 1, id + " automatic empty reload takes new snapshot")
+		check(starts[0] == 2, id + " automatic reload emits once")
+		serial = weapon.reload_serial
+		weapon.reset(id)
+		weapon.mag = 1
+		check(weapon.start_reload() and weapon.reload_serial == serial + 1, id + " reset cannot reuse prior reload identity")
 		weapon.free()
 
 

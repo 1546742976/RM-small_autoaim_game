@@ -2,3 +2,4 @@
 /artifacts/
 /build/
 /tools/cache/
+/tools/__pycache__/

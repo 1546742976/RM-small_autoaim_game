@@ -1,0 +1,92 @@
+{
+  "ak47_insert.wav": {
+    "sha256": "7df2a6ce6124e0196e8639e3fa50f13dee810532f77c22a3b33a03cc7dcd1eed",
+    "sample_rate": 48000,
+    "channels": 1,
+    "seconds": 0.28,
+    "author": "RMPrecisionLab project",
+    "license": "MIT",
+    "source": "tools/prepare_reload_audio.py",
+    "type": "original synthesized game foley"
+  },
+  "ak47_mechanism.wav": {
+    "sha256": "43be623d604d1db744c034d6028c8d077dc5434e494fd4a9d38e90533878ff0d",
+    "sample_rate": 48000,
+    "channels": 1,
+    "seconds": 0.23,
+    "author": "RMPrecisionLab project",
+    "license": "MIT",
+    "source": "tools/prepare_reload_audio.py",
+    "type": "original synthesized game foley"
+  },
+  "ak47_remove.wav": {
+    "sha256": "d8c0d53ad6432ea275a412dfb00fb9781679f61e23ce3f1f52e71b85819c8eaa",
+    "sample_rate": 48000,
+    "channels": 1,
+    "seconds": 0.24,
+    "author": "RMPrecisionLab project",
+    "license": "MIT",
+    "source": "tools/prepare_reload_audio.py",
+    "type": "original synthesized game foley"
+  },
+  "deagle_insert.wav": {
+    "sha256": "ae8f47b9e2daeed4e5fb81ae63ed6db978ab1193524e249232fa50e47608ff14",
+    "sample_rate": 48000,
+    "channels": 1,
+    "seconds": 0.28,
+    "author": "RMPrecisionLab project",
+    "license": "MIT",
+    "source": "tools/prepare_reload_audio.py",
+    "type": "original synthesized game foley"
+  },
+  "deagle_mechanism.wav": {
+    "sha256": "27f07a9e8f71932d99a9b0ba5f8f3abfd9a08141f3c48735497512be155188dd",
+    "sample_rate": 48000,
+    "channels": 1,
+    "seconds": 0.23,
+    "author": "RMPrecisionLab project",
+    "license": "MIT",
+    "source": "tools/prepare_reload_audio.py",
+    "type": "original synthesized game foley"
+  },
+  "deagle_remove.wav": {
+    "sha256": "d99a9205655cdd2ad7650e5318aa8798338302b2ed23ae804712a45d99c2bcc4",
+    "sample_rate": 48000,
+    "channels": 1,
+    "seconds": 0.24,
+    "author": "RMPrecisionLab project",
+    "license": "MIT",
+    "source": "tools/prepare_reload_audio.py",
+    "type": "original synthesized game foley"
+  },
+  "m4a1_insert.wav": {
+    "sha256": "034ead7c098d15b6bde40e45ca32558d714dbd01bd441148e1937f1b2b642a2a",
+    "sample_rate": 48000,
+    "channels": 1,
+    "seconds": 0.28,
+    "author": "RMPrecisionLab project",
+    "license": "MIT",
+    "source": "tools/prepare_reload_audio.py",
+    "type": "original synthesized game foley"
+  },
+  "m4a1_mechanism.wav": {
+    "sha256": "b93e5960964891cc33d552d1cefe84488437f06ca2640db63ecc875654e88624",
+    "sample_rate": 48000,
+    "channels": 1,
+    "seconds": 0.23,
+    "author": "RMPrecisionLab project",
+    "license": "MIT",
+    "source": "tools/prepare_reload_audio.py",
+    "type": "original synthesized game foley"
+  },
+  "m4a1_remove.wav": {
+    "sha256": "0232361d2276becaacdf5ae736d7a8d94f84481cf9a997f4a919fb522f019bce",
+    "sample_rate": 48000,
+    "channels": 1,
+    "seconds": 0.24,
+    "author": "RMPrecisionLab project",
+    "license": "MIT",
+    "source": "tools/prepare_reload_audio.py",
+    "type": "original synthesized game foley"
+  }
+}

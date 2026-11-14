@@ -303,22 +303,22 @@ func check_models_and_regions() -> void:
 		for p: float in [0.0,0.2,0.35,0.60,0.84,0.999]:
 			game.weapon.advance_ms((p-previous)*duration)
 			previous = p
-			game.player.update_reload(game.weapon.reload_left_ms, duration)
+			game.player.update_reload(game.weapon.reload_left_ms, duration, game.weapon.reload_kind, game.weapon.reload_serial)
 			await frames()
 			check(game.weapon.mag == old_mag and game.weapon.reserve == old_reserve, id + " no ammunition before animation end")
 			check(game.player.camera.transform == camera_before, id + " reload leaves aim unchanged")
 			if p == 0.35 or p == 0.60:
-				var contact: Vector3 = view.magazine.to_global(Vector3(-0.025,0,0))
-				check(contact.distance_to(view.palm.global_position) < 0.002, id + " magazine stays in hand")
+				var contact: Transform3D = view.contact_transform(view.model.find_child("MagazineGrip", true, false))
+				check(contact.origin.distance_to(view.contact_transform(view.palm).origin) < 0.002, id + " magazine stays in hand")
 			await capture(id + "-reload-%03d" % int(p*100))
 		game.weapon.advance_ms(duration*0.001+0.01)
-		game.player.update_reload(game.weapon.reload_left_ms,duration)
+		game.player.update_reload(game.weapon.reload_left_ms,duration,game.weapon.reload_kind,game.weapon.reload_serial)
 		check(game.weapon.mag == old_mag+1 and game.weapon.reserve == old_reserve-1, id + " ammunition changes at completion")
-		check(view.magazine.transform.is_equal_approx(view.magazine_home) and view.left_arm.visible and not view.reload_arms.visible, id + " final pose restored")
+		check(view.magazine.transform.is_equal_approx(view.magazine_home) and view.skeleton.visible and view._sampled_clip == "idle", id + " unified hands return to idle")
 		game.resume_game()
 		game.weapon.mag = 1
 		game.weapon.try_fire()
-		game.player.update_reload(game.weapon.reload_left_ms,duration)
+		game.player.update_reload(game.weapon.reload_left_ms,duration,game.weapon.reload_kind,game.weapon.reload_serial)
 		check(game.weapon.is_reloading() and view.reload_progress >= 0.0, id + " auto reload uses same visual")
 		game.finish_round("test interruption")
 		check(view.reload_progress < 0.0 and view.magazine.transform.is_equal_approx(view.magazine_home), id + " round end restores pose")

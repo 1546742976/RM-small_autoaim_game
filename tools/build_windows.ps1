@@ -27,13 +27,15 @@ try {
         & $enginePath @EngineArgs 2>&1 | Out-Host
         if ($LASTEXITCODE -ne 0) { throw "Godot failed: $LASTEXITCODE" }
         $logArgument = [Array]::IndexOf($EngineArgs, '--log-file')
-        if ($logArgument -ge 0 -and (Select-String -LiteralPath $EngineArgs[$logArgument + 1] -Pattern 'SCRIPT ERROR:|^ERROR:|SMOKE FAIL|^FAIL' -Quiet)) {
+        if ($logArgument -ge 0 -and (Select-String -LiteralPath $EngineArgs[$logArgument + 1] -Pattern 'SCRIPT ERROR:|^ERROR:|SMOKE FAIL|INPUT FAIL|VIEWMODEL FAIL|^FAIL' -Quiet)) {
             throw "Inspect $($EngineArgs[$logArgument + 1]) before shipping."
         }
     }
     Invoke-Engine @('--headless', '--path', $projectPath, '--editor', '--import', '--quit', '--log-file', "$artifactPath/import.log")
     Invoke-Engine @('--headless', '--path', $projectPath, '--script', 'res://tests/test_rules.gd', '--log-file', "$artifactPath/rules.log")
     Invoke-Engine @('--headless', '--path', $projectPath, '--log-file', "$artifactPath/game-smoke-headless.log", '--', '--smoke-test')
+    Invoke-Engine @('--headless', '--path', $projectPath, '--log-file', "$artifactPath/input-checks.log", '--', '--input-checks')
+    Invoke-Engine @('--headless', '--path', $projectPath, '--log-file', "$artifactPath/viewmodel-headless.log", '--', '--viewmodel-checks', "--capture-dir=$artifactPath/first-person/headless")
     Invoke-Engine @('--headless', '--path', $projectPath, '--export-release', 'Windows Desktop', '--log-file', "$artifactPath/export.log")
     Copy-Item -LiteralPath (Join-Path $repoRoot 'README.md'), (Join-Path $repoRoot 'ASSET_MANIFEST.md'), (Join-Path $repoRoot 'VALIDATION.md'), (Join-Path $repoRoot 'UI_DESIGN.md'), (Join-Path $repoRoot 'CONTROL_API.md'), (Join-Path $repoRoot 'LICENSE') -Destination $releasePath -Force
     $sdkPath = Join-Path $releasePath 'sdk'

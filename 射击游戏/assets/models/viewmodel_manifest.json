@@ -1,0 +1,323 @@
+{
+  "deagle": {
+    "duration": 2.2,
+    "bones": {
+      "L": [
+        "L_arm_01",
+        "L_elbow_02",
+        "L_wrist_03"
+      ],
+      "R": [
+        "R_arm_024",
+        "R_elbow_025",
+        "R_wrist_026"
+      ]
+    },
+    "clips": {
+      "reload_empty": {
+        "events": [
+          {
+            "name": "remove",
+            "progress": 0.2
+          },
+          {
+            "name": "insert",
+            "progress": 0.72
+          },
+          {
+            "name": "mechanism",
+            "progress": 0.84
+          }
+        ],
+        "contacts": [
+          {
+            "start": 0.2,
+            "end": 0.72,
+            "a": "LeftMagazineContact",
+            "b": "MagazineGrip"
+          },
+          {
+            "start": 0,
+            "end": 1,
+            "a": "RightHandContact",
+            "b": "RightGrip"
+          },
+          {
+            "start": 0.82,
+            "end": 0.88,
+            "a": "LeftMechanicalContact",
+            "b": "MechanicalContact"
+          }
+        ],
+        "transitions": [
+          0,
+          0.2,
+          0.33,
+          0.44,
+          0.52,
+          0.65,
+          0.72,
+          0.79,
+          0.81,
+          0.9,
+          0.98,
+          1
+        ]
+      },
+      "reload_tactical": {
+        "events": [
+          {
+            "name": "remove",
+            "progress": 0.2
+          },
+          {
+            "name": "insert",
+            "progress": 0.72
+          }
+        ],
+        "contacts": [
+          {
+            "start": 0.2,
+            "end": 0.72,
+            "a": "LeftMagazineContact",
+            "b": "MagazineGrip"
+          },
+          {
+            "start": 0,
+            "end": 1,
+            "a": "RightHandContact",
+            "b": "RightGrip"
+          }
+        ],
+        "transitions": [
+          0,
+          0.2,
+          0.33,
+          0.44,
+          0.52,
+          0.65,
+          0.72,
+          0.79,
+          0.81,
+          0.9,
+          0.98,
+          1
+        ]
+      }
+    }
+  },
+  "ak47": {
+    "duration": 2.5,
+    "bones": {
+      "L": [
+        "L_arm_01",
+        "L_elbow_02",
+        "L_wrist_03"
+      ],
+      "R": [
+        "R_arm_024",
+        "R_elbow_025",
+        "R_wrist_026"
+      ]
+    },
+    "clips": {
+      "reload_empty": {
+        "events": [
+          {
+            "name": "remove",
+            "progress": 0.2
+          },
+          {
+            "name": "insert",
+            "progress": 0.72
+          },
+          {
+            "name": "mechanism",
+            "progress": 0.84
+          }
+        ],
+        "contacts": [
+          {
+            "start": 0.2,
+            "end": 0.72,
+            "a": "LeftMagazineContact",
+            "b": "MagazineGrip"
+          },
+          {
+            "start": 0,
+            "end": 1,
+            "a": "RightHandContact",
+            "b": "RightGrip"
+          },
+          {
+            "start": 0.82,
+            "end": 0.88,
+            "a": "LeftMechanicalContact",
+            "b": "MechanicalContact"
+          }
+        ],
+        "transitions": [
+          0,
+          0.2,
+          0.33,
+          0.44,
+          0.52,
+          0.65,
+          0.72,
+          0.79,
+          0.81,
+          0.9,
+          0.98,
+          1
+        ]
+      },
+      "reload_tactical": {
+        "events": [
+          {
+            "name": "remove",
+            "progress": 0.2
+          },
+          {
+            "name": "insert",
+            "progress": 0.72
+          }
+        ],
+        "contacts": [
+          {
+            "start": 0.2,
+            "end": 0.72,
+            "a": "LeftMagazineContact",
+            "b": "MagazineGrip"
+          },
+          {
+            "start": 0,
+            "end": 1,
+            "a": "RightHandContact",
+            "b": "RightGrip"
+          }
+        ],
+        "transitions": [
+          0,
+          0.2,
+          0.33,
+          0.44,
+          0.52,
+          0.65,
+          0.72,
+          0.79,
+          0.81,
+          0.9,
+          0.98,
+          1
+        ]
+      }
+    }
+  },
+  "m4a1": {
+    "duration": 3.1,
+    "bones": {
+      "L": [
+        "L_arm_01",
+        "L_elbow_02",
+        "L_wrist_03"
+      ],
+      "R": [
+        "R_arm_024",
+        "R_elbow_025",
+        "R_wrist_026"
+      ]
+    },
+    "clips": {
+      "reload_empty": {
+        "events": [
+          {
+            "name": "remove",
+            "progress": 0.2
+          },
+          {
+            "name": "insert",
+            "progress": 0.72
+          },
+          {
+            "name": "mechanism",
+            "progress": 0.84
+          }
+        ],
+        "contacts": [
+          {
+            "start": 0.2,
+            "end": 0.72,
+            "a": "LeftMagazineContact",
+            "b": "MagazineGrip"
+          },
+          {
+            "start": 0,
+            "end": 1,
+            "a": "RightHandContact",
+            "b": "RightGrip"
+          },
+          {
+            "start": 0.82,
+            "end": 0.88,
+            "a": "LeftMechanicalContact",
+            "b": "MechanicalContact"
+          }
+        ],
+        "transitions": [
+          0,
+          0.2,
+          0.33,
+          0.44,
+          0.52,
+          0.65,
+          0.72,
+          0.79,
+          0.81,
+          0.9,
+          0.98,
+          1
+        ]
+      },
+      "reload_tactical": {
+        "events": [
+          {
+            "name": "remove",
+            "progress": 0.2
+          },
+          {
+            "name": "insert",
+            "progress": 0.72
+          }
+        ],
+        "contacts": [
+          {
+            "start": 0.2,
+            "end": 0.72,
+            "a": "LeftMagazineContact",
+            "b": "MagazineGrip"
+          },
+          {
+            "start": 0,
+            "end": 1,
+            "a": "RightHandContact",
+            "b": "RightGrip"
+          }
+        ],
+        "transitions": [
+          0,
+          0.2,
+          0.33,
+          0.44,
+          0.52,
+          0.65,
+          0.72,
+          0.79,
+          0.81,
+          0.9,
+          0.98,
+          1
+        ]
+      }
+    }
+  }
+}

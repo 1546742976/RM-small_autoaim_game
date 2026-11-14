@@ -21,6 +21,8 @@ var hits := 0
 var kills := 0
 var headshots := 0
 var pending_shots := 0
+var manual_fire_held := false
+var _left_button_down := false
 var round_id := 0
 var control_bridge: Node
 var shot_rng := RandomNumberGenerator.new()
@@ -40,10 +42,12 @@ func _ready() -> void:
 	player = PlayerController.new()
 	player.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(player)
+	player.control_changed.connect(clear_manual_fire)
 	weapon = WeaponController.new()
 	weapon.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(weapon)
 	weapon.fired.connect(_on_fired)
+	weapon.reload_started.connect(clear_manual_fire)
 	weapon.depleted.connect(func(): finish_round("弹药耗尽"))
 	ui = GameHUD.new()
 	add_child(ui)
@@ -70,6 +74,18 @@ func _ready() -> void:
 		var checks = load("res://tests/control_checks.gd").new()
 		add_child(checks)
 		checks.call_deferred("run",self)
+	elif "--input-checks" in OS.get_cmdline_user_args():
+		var checks = load("res://tests/input_checks.gd").new()
+		add_child(checks)
+		checks.call_deferred("run",self)
+	elif "--viewmodel-checks" in OS.get_cmdline_user_args():
+		var checks = load("res://tests/viewmodel_checks.gd").new()
+		add_child(checks)
+		checks.call_deferred("run",self)
+	elif "--reload-showcase" in OS.get_cmdline_user_args() or "--viewmodel-benchmark" in OS.get_cmdline_user_args():
+		var showcase = load("res://tests/reload_showcase.gd").new()
+		add_child(showcase)
+		showcase.call_deferred("run",self)
 	elif "--control-fixture" in OS.get_cmdline_user_args():
 		var fixture = load("res://tests/control_fixture.gd").new()
 		add_child(fixture)
@@ -99,7 +115,7 @@ func _reset_player() -> void:
 func _stop_play() -> void:
 	if is_instance_valid(control_bridge): control_bridge.invalidate("state_changed")
 	get_tree().paused = false
-	pending_shots = 0
+	clear_manual_fire()
 	player.active = false
 	weapon.active = false
 	arena.set_active(false)
@@ -172,6 +188,10 @@ func headshot_rate() -> float:
 	return 100.0 * headshots / kills if kills > 0 else 0.0
 
 func _input(event: InputEvent) -> void:
+	# Releases must be observed even when a UI control consumes the event.
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+		_left_button_down = false
+		manual_fire_held = false
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		if ui.overlay_kind == "help":
 			ui.close_help()
@@ -183,12 +203,29 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if get_tree().paused or phase != "training" or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED: return
+	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED: return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		set_primary_pressed(event.pressed)
+	if get_tree().paused or phase != "training": return
 	if player.remote_controlled: return
 	if event.is_action_pressed("reload"): weapon.start_reload()
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		var error: String = weapon.fire_error()
-		if error.is_empty(): pending_shots += 1
+
+func set_primary_pressed(pressed: bool) -> void:
+	if not pressed:
+		_left_button_down = false
+		manual_fire_held = false
+		return
+	if _left_button_down: return
+	_left_button_down = true
+	if get_tree().paused or phase != "training" or player.remote_controlled: return
+	var error: String = weapon.fire_error()
+	# Holding is ongoing intent, not a queue of future shots. A reload never arms it.
+	manual_fire_held = weapon.current_weapon in ["ak47", "m4a1"] and error in ["", "cooldown"]
+	if error.is_empty(): pending_shots += 1
+
+func clear_manual_fire() -> void:
+	manual_fire_held = false
+	pending_shots = 0
 
 func _physics_process(delta: float) -> void:
 	if get_tree().paused: return
@@ -206,8 +243,10 @@ func _physics_process(delta: float) -> void:
 		pending_shots = 0
 		for i in attempts:
 			if phase == "training": weapon.try_fire()
+		if phase == "training" and manual_fire_held and not player.remote_controlled and attempts == 0:
+			weapon.try_fire()
 		if phase == "training":
-			player.update_reload(weapon.reload_left_ms,float(weapon.get_data().reload_ms))
+			player.update_reload(weapon.reload_left_ms,float(weapon.get_data().reload_ms),weapon.reload_kind,weapon.reload_serial)
 			_update_hud()
 
 func _on_fired() -> void:
@@ -239,7 +278,7 @@ func _on_fired() -> void:
 func pause_game() -> void:
 	if phase != "countdown" and phase != "training": return
 	if is_instance_valid(control_bridge): control_bridge.invalidate("paused")
-	pending_shots = 0
+	clear_manual_fire()
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	ui.show_pause()
@@ -254,7 +293,7 @@ func resume_game() -> void:
 
 func _notification(what: int) -> void:
 	if is_instance_valid(player) and player.remote_controlled: return
-	for flag in ["--smoke-test","--showcase","--benchmark","--previews","--spread-demo","--control-smoke","--control-fixture"]:
+	for flag in ["--smoke-test","--showcase","--benchmark","--previews","--spread-demo","--control-smoke","--control-fixture","--input-checks","--viewmodel-checks","--reload-showcase","--viewmodel-benchmark"]:
 		if flag in OS.get_cmdline_user_args(): return
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_instance_valid(ui) and not get_tree().paused:
 		pause_game()

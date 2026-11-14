@@ -7,6 +7,7 @@ const Rules = preload("res://scripts/game_rules.gd")
 signal fired
 signal changed
 signal depleted
+signal reload_started
 
 var current_weapon: String = "deagle"
 var mag: int = 7
@@ -14,6 +15,8 @@ var reserve: int = 14
 var time_ms: float = 0.0
 var last_fire_ms: float = -1.0e20
 var reload_left_ms: float = 0.0
+var reload_kind: String = "empty"
+var reload_serial: int = 0
 var active: bool = false
 
 
@@ -34,6 +37,7 @@ func reset(weapon_id: String) -> void:
 	time_ms = 0.0
 	last_fire_ms = -1.0e20
 	reload_left_ms = 0.0
+	reload_kind = "empty"
 	changed.emit()
 
 
@@ -59,7 +63,10 @@ func advance_ms(delta_ms: float) -> void:
 func start_reload() -> bool:
 	if not active or is_reloading() or reserve <= 0 or mag >= int(get_data().mag_size):
 		return false
+	reload_kind = "empty" if mag == 0 else "tactical"
+	reload_serial += 1
 	reload_left_ms = float(get_data().reload_ms)
+	reload_started.emit()
 	changed.emit()
 	return true
 

@@ -1,5 +1,5 @@
 """Blender 4.5: normalize attributed meshes, rigged arms and target for Godot."""
-import bpy, math, json
+import bpy, math, json, shutil
 import numpy as np
 from pathlib import Path
 from mathutils import Matrix, Vector
@@ -125,6 +125,9 @@ def viewmodel(id,source,scale,grip,muzzle,left):
             tex=nodes.new('ShaderNodeTexImage');tex.image=img
             normal=nodes.new('ShaderNodeNormalMap');links.new(tex.outputs['Color'],normal.inputs['Color']);links.new(normal.outputs['Normal'],bs.inputs['Normal'])
     export(id+'.glb')
+    # Immutable normalized input for the following persistent-arms authoring
+    # stage; repeated authoring must not re-import its own animated output.
+    shutil.copy2(OUT/(id+'.glb'), CACHE/('normalized_'+id+'.glb'))
 
 viewmodel('deagle','elizion_desert_eagle_desert_eagle.glb',.012,(0,10.8,16.5),(0,-10.8,24.14),(0,.16,.09))
 viewmodel('ak47','steel_tide_ak74_ak47_reloadable_fp.glb',.7,(0,.15,-.14),(0,1.135,.005),(0,.475,.14))

@@ -6,9 +6,15 @@ const ACCELERATION := 30.0
 const FRICTION := 12.0
 const COUNTER_ACCELERATION := 48.0
 const SENSITIVITY := 0.0022
+signal control_changed
 
 var active: bool = false
-var remote_controlled := false
+var remote_controlled := false:
+	set(value):
+		if remote_controlled == value:
+			return
+		remote_controlled = value
+		control_changed.emit()
 var camera: Camera3D
 var weapon_root: Node3D
 var view: Node3D
@@ -46,7 +52,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseMotion:
 		if remote_controlled: return
-		for flag in ["--smoke-test", "--showcase", "--benchmark", "--spread-demo"]:
+		for flag in ["--smoke-test", "--showcase", "--benchmark", "--spread-demo", "--reload-showcase", "--viewmodel-checks", "--viewmodel-benchmark"]:
 			if flag in OS.get_cmdline_user_args() and not event.has_meta("smoke_motion"):
 				return
 		rotate_y(-event.relative.x * SENSITIVITY)
@@ -116,5 +122,5 @@ func set_weapon(id: String) -> void:
 func play_shot() -> void:
 	view.play_shot()
 
-func update_reload(left_ms: float, total_ms: float) -> void:
-	view.set_reload(left_ms, total_ms)
+func update_reload(left_ms: float, total_ms: float, kind: String = "empty", serial: int = 0) -> void:
+	view.set_reload(left_ms, total_ms, kind, serial)

@@ -100,7 +100,8 @@ func run(controller: Node3D, assertion: Callable) -> void:
 			game.player.reset_position(game.arena.map_root.test_views[0])
 			await frames(3)
 		target.set_physics_process(true)
-	# Actual mouse clicks during cooldown must never be replayed after it expires.
+	# A short press/release during cooldown is not buffered. Deliberate rifle
+	# holding is separately tested in input_checks.gd and may fire after cooldown.
 	game.weapon.reset("ak47")
 	game.weapon.active = true
 	game.player._horizontal_speed = game.player.MAX_SPEED
@@ -110,10 +111,13 @@ func run(controller: Node3D, assertion: Callable) -> void:
 	var click := InputEventMouseButton.new()
 	click.button_index = MOUSE_BUTTON_LEFT
 	click.pressed = true
+	var release: InputEventMouseButton = click.duplicate()
+	release.pressed = false
 	if DisplayServer.get_name() == "headless":
 		check.call(game.weapon.fire_error() == "cooldown","cooldown rejects before queueing")
 	else:
 		game._unhandled_input(click)
+		game._unhandled_input(release)
 	check.call(game.pending_shots == 0,"cooldown click is not queued")
 	await frames(30)
 	check.call(game.shot_rng.state == state_before and game.shots == count_before,"blocked click never fires later or consumes randomness")
@@ -126,7 +130,9 @@ func run(controller: Node3D, assertion: Callable) -> void:
 		game.weapon.advance_ms(float(game.weapon.get_data().interval_ms))
 		game.player._horizontal_speed = speeds[0]*game.player.MAX_SPEED
 		if DisplayServer.get_name() == "headless": game.pending_shots = 1
-		else: game._unhandled_input(click)
+		else:
+			game._unhandled_input(click)
+			game._unhandled_input(release)
 		check.call(game.pending_shots == 1,"firing-time test click accepted")
 		game.player._horizontal_speed = speeds[1]*game.player.MAX_SPEED
 		game._physics_process(0.0)
