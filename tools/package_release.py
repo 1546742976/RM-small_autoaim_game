@@ -38,17 +38,21 @@ def main():
     assert read(E/'cpp-probe/build.json')['exe_sha256']==digest
     assert probe['actions'][0]['fired'] and probe['actions'][1]['reloaded']
     evidence.append(('projectile',E/'cpp-probe'))
+    audio=ROOT/'artifacts/audio-demo'
+    assert read(audio/'build.json')['exe_sha256']==digest
+    assert (audio/'demo.mp4').stat().st_size>10000
+    evidence.append(('audio',audio))
     review=E/'visual-review.md';assert review.exists()
     historical=OUT/'verification/previous-assessment-validation.md'
     if not historical.exists(): shutil.copy2(ROOT/'VALIDATION.md',historical)
     regress='\n'.join(f"- {run['test']} {run['resolution']}: {'; '.join(run['summary'])}" for run in regression['runs'])
-    report=f"""# 验证记录 · 模糊雷达与实体子弹
+    report=f"""# 验证记录 · 方向雷达与战斗音效
 
 验证日期：2026-11-15。最终 Windows EXE SHA256：`{digest}`。
 
 ## 已完成并实际验证
 
-- [x] 箱阵左上角模糊雷达：双方 4 米区域中心、0.5 秒更新、隔墙显示；高度不影响位置，同区空心／实心标记可辨。暂停冻结并隐藏，继续刷新，死亡移除，重开清空。其他地图与菜单不显示。
+- [x] 箱阵左上角方向雷达：八方向扇区、0.5 秒采样、随朝向变化；不读取地图布局、不显示距离高度，水平重合显示淡环。暂停冻结并隐藏，继续刷新，死亡移除，重开清空。其他地图与菜单不显示。
 - [x] 单一三维渲染，雷达仅合成到本地窗口；实际 TCP JPEG 取得下方完整场景，未加入坐标、雷达或地图 JSON 字段。比较同一静止场景的窗口、内层视口和网络 JPEG；尺寸、RGB 方向、相机内参检查通过。
 - [x] 实体子弹 25 m/s、直径 2 cm、直线飞行；头部命中击杀，身体阻挡零伤害。覆盖 2 mm 薄墙扫掠、初始重叠、运动头部、最长 4 秒、暂停冻结、最后一发及在途互杀。
 - [x] 镜头附近尾迹亮条定位并修复：原先仅检查弹体位置，现检查整段 0.75 米尾迹与镜头距离；逻辑检查及实机复现场景均通过。
@@ -62,11 +66,17 @@ def main():
 | 检查 | 1280×720 | 960×540 |
 |---|---:|---:|
 | 实体子弹／跳跃／高台 | {counts['projectile1280x720']} 项，0 失败 | {counts['projectile960x540']} 项，0 失败 |
-| 雷达／窗口输入／显示隔离 | {counts['radar1280x720']} 项，0 失败 | {counts['radar960x540']} 项，0 失败 |
+| 雷达／脚步／音源／窗口输入／显示隔离 | {counts['radar1280x720']} 项，0 失败 | {counts['radar960x540']} 项，0 失败 |
 
 {regress}
 
 构建前的规则、流程、输入、实体场景、雷达与模型检查日志在 `verification/projectile/build/`。无窗口检查不作为画面或性能证据；图形结果来自最终导出的独立 EXE。测试固定布景及时间推进用于规则验证，正常游戏没有测试标记或额外 HUD。
+
+## 音效验证
+
+三枪独立音源与独立随机数、实际落地步距、空中静音、一次落地声、木质表面、遮挡音量与低通、暂停及菜单清空均完成自动检查。21 个原创音源峰值不超过 0.65；本轮未进行人工听觉验收，音色自然度与主观定位听感仍待试听。
+
+首次 C++ 联调退出时出现 2 个 ObjectDB 实例和 1 个资源未释放的关闭日志，通信操作本身通过。补充完整进程日志检测并开启 verbose 后复测未复现；尚未定位偶发退出资源残留的根因，不标为已修复。
 
 ## C++ 客户端
 
@@ -74,7 +84,7 @@ Windows 本机回环联调实际取得 {probe['frames']} 帧，{probe['frames_pe
 
 ## 媒体与目视范围
 
-当前媒体为 `media/projectile/`、`media/radar/`，包括三维地图、跳跃、高台交火、子弹飞行及四分之一速度侧视片段；`regression/network-*/radar-local.png` 与 `radar-program.jpg` 是本地窗口／真实网络取图对照。演示由脚本安排布景，使用正常控制器、碰撞和射击流程；不是人工游玩录像。具体截图抽查在 `verification/projectile/visual-review.md`。
+当前媒体为 `media/projectile/`、`media/radar/` 及 `media/audio/audio-demo/`，包括三维地图、跳跃、高台交火、子弹飞行及四分之一速度侧视片段；`regression/network-*/radar-local.png` 与 `radar-program.jpg` 是本地窗口／真实网络取图对照。演示由脚本安排布景，使用正常控制器、碰撞和射击流程；不是人工游玩录像。具体截图抽查在 `verification/projectile/visual-review.md`。
 
 其余 assessment、first-person、control、spread 等目录是此前版本的历史证据，不作为本轮验收。第一人称模型和六套换弹素材本轮未重制，原制作文件包继续提供。
 
@@ -92,7 +102,7 @@ Windows 本机回环联调实际取得 {probe['frames']} 帧，{probe['frames_pe
     for kind,folder in evidence:
         for file in folder.rglob('*'):
             if not file.is_file(): continue
-            if file.suffix in ['.png','.jpg','.mp4']: dest=OUT/'media'/kind/file.relative_to(folder.parent)
+            if file.suffix in ['.png','.jpg','.mp4','.wav']: dest=OUT/'media'/kind/file.relative_to(folder.parent)
             elif file.suffix in ['.log','.json','.md']:
                 if file.suffix=='.log': assert not re.search(r'SCRIPT ERROR:|^ERROR:|PROJECTILE FAIL|SMOKE FAIL|CONTROL FAIL|INPUT FAIL',file.read_text(encoding='utf-8',errors='replace'),re.M),file
                 dest=OUT/'verification'/kind/file.relative_to(folder.parent)
@@ -106,7 +116,7 @@ Windows 本机回环联调实际取得 {probe['frames']} 帧，{probe['frames_pe
         shutil.copy2(file,logs/name)
     shutil.copytree(ROOT/'sdk/cpp',OUT/'sdk/cpp',dirs_exist_ok=True)
     shutil.copytree(ROOT/'射击游戏/assets/licenses',OUT/'licenses',dirs_exist_ok=True)
-    (OUT/'media/README.md').write_text('# 实机媒体\n\n当前版本：projectile/、radar/。其余目录是历史版本，不能用于本轮验收。完整范围见根目录 VALIDATION.md。\n',encoding='utf-8')
+    (OUT/'media/README.md').write_text('# 实机媒体\n\n当前版本：projectile/、radar/、audio/。其余目录是历史版本，不能用于本轮验收。完整范围见根目录 VALIDATION.md。\n',encoding='utf-8')
     sdk=ROOT/'builds/RMControl-cpp-sdk.zip'
     with zipfile.ZipFile(sdk,'w',zipfile.ZIP_DEFLATED) as z:
         for file in (ROOT/'sdk/cpp').rglob('*'):

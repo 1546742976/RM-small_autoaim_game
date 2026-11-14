@@ -38,4 +38,4 @@ func _resize() -> void:
 	if is_instance_valid(radar):
 		var compact := size.x < 1100
 		radar.position = Vector2.ONE * (16 if compact else 24)
-		radar.size = Vector2.ONE * (160 if compact else 200)
+		radar.size = Vector2.ONE * (112 if compact else 140)

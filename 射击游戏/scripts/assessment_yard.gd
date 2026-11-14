@@ -89,6 +89,7 @@ func _platform(config: Dictionary,mat: Material) -> void:
 	var center: Vector3=layout.platform_center(config)
 	center.y=0
 	_box(Vector3(4,2,4),center+Vector3(0,1,0),mat,true)
+	get_child(get_child_count()-1).set_meta("footstep_surface","wood")
 	var trim:=_material(Color("d9ad66"))
 	for sign_z in [-1,1]:
 		var stair_center:=center+Vector3(0,0,sign_z*4)
@@ -108,6 +109,7 @@ func _platform(config: Dictionary,mat: Material) -> void:
 		wedge.points=points
 		shape.shape=wedge
 		body.add_child(shape)
+		body.set_meta("footstep_surface","wood")
 		body.position=stair_center
 		add_child(body)
 		_box(Vector3(2,0.02,0.12),center+Vector3(0,2.015,sign_z*1.9),trim,false)

@@ -9,6 +9,7 @@ const SENSITIVITY := 0.0022
 const JUMP_SPEED := 6.3
 signal control_changed
 
+var footsteps: Node
 var active: bool = false
 var remote_controlled := false:
 	set(value):
@@ -47,6 +48,9 @@ func _ready() -> void:
 	weapon_root.position = Vector3(0.22, -0.29, -0.46)
 	camera.add_child(weapon_root)
 	set_weapon(_weapon_id)
+	footsteps=preload("res://scripts/footsteps.gd").new()
+	add_child(footsteps)
+	footsteps.configure(self,camera,true)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -71,6 +75,7 @@ func apply_look_delta(yaw_degrees: float, pitch_degrees: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	if not active:
+		footsteps.reset()
 		velocity = Vector3.ZERO
 		_horizontal_speed = 0.0
 		return
@@ -90,6 +95,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		velocity.y -= 20.0 * delta
 	move_and_slide()
+	footsteps.advance(delta,true)
 	var real_velocity: Vector3 = get_real_velocity()
 	_horizontal_speed = Vector2(real_velocity.x, real_velocity.z).length()
 
@@ -99,6 +105,7 @@ func get_speed_ratio() -> float:
 
 
 func reset_position(pos: Vector3 = Vector3(0, 0.02, 9), yaw: float = 0.0) -> void:
+	if footsteps: footsteps.reset()
 	collision_layer=4
 	position = pos
 	rotation = Vector3(0, yaw, 0)

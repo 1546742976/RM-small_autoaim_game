@@ -74,5 +74,6 @@ func stop() -> void:
 	bot.weapon.active=false
 	bot.target.active=false
 	bot.velocity=Vector3.ZERO
-	bot.sound.stop()
+	for voice in bot.shot_voices: voice.stop()
+	bot.footsteps.reset()
 	bot.flash.hide()

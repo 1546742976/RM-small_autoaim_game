@@ -74,6 +74,12 @@ func run(controller: Node3D) -> void:
 
 func projectiles_test() -> void:
 	await prepare()
+	for axis in [Vector3(0,0,-1),Vector3(0,0.5,-1),Vector3(0,-0.5,-1)]:
+		var direction: Vector3=axis.normalized()
+		var straight: Dictionary=game.projectiles.spawn(Vector3(0,50,0),direction,"player")
+		game.projectiles.advance(0.4)
+		check(straight.area.global_position.distance_to(Vector3(0,50,0)+direction*10)<0.001,"no drop at horizontal/up/down elevation")
+		game.projectiles.clear()
 	var camera: Camera3D=game.player.camera
 	var tracer: Dictionary=game.projectiles.spawn(camera.global_position+Vector3(0,0,0.5),Vector3.BACK,"bot")
 	tracer.distance=0.75

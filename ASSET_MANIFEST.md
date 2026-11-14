@@ -58,3 +58,7 @@ CC BY 署名：**“Desert Eagle” by ELIZION, licensed under CC BY 4.0. “fps
 ## 实体子弹、高台与雷达（2026-11-15）
 
 球形弹体、短尾迹、高台／楼梯几何、区域雷达及粗化算法由本项目制作，MIT。高台复用现有 ambientCG CC0 木材贴图；雷达使用 Godot 原生二维绘制，无新增纹理、字体、网络库或外部素材费用。代码入口分别为 projectile_system.gd、assessment_yard.gd、radar_snapshot.gd、assessment_radar.gd 与 game_window.gd。
+
+## 战斗音效与方向雷达
+
+assets/audio/combat/ 为本项目原创 MIT 合成音效：三枪各 3 个、硬地／木质／落地各 4 个，共 21 个 48 kHz 16-bit 单声道 WAV。生成脚本 tools/prepare_combat_audio.py 与 manifest.json 保存制作参数与峰值记录，无新增外部素材费用。方向盘由 Godot 原生绘制，不使用地图图片。

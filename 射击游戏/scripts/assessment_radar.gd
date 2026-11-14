@@ -26,39 +26,23 @@ func _process(delta: float) -> void:
 	if not visible:
 		was_visible = false
 		return
-	if snapshot.round_id != game.round_id: snapshot.load_layout(game.arena.map_root.layout, game.round_id)
-	if snapshot.advance(delta, game.player.global_position, game.duel.bot.global_position, game.duel.player_alive, game.duel.bot.target.alive, not was_visible): queue_redraw()
+	if snapshot.round_id != game.round_id:
+		snapshot.reset()
+		snapshot.round_id=game.round_id
+	if snapshot.advance(delta, game.player.global_position, game.duel.bot.global_position, game.duel.player_alive, game.duel.bot.target.alive, game.player.rotation.y, not was_visible): queue_redraw()
 	was_visible = true
 
-func map_rect() -> Rect2:
-	var extent := size - Vector2(32, 24)
-	var factor := minf(extent.x / Snapshot.BOUNDS.size.x, extent.y / Snapshot.BOUNDS.size.y)
-	var map_size := Snapshot.BOUNDS.size * factor
-	return Rect2((size - map_size) / 2, map_size)
-
-func project(point: Vector2) -> Vector2:
-	var rect := map_rect()
-	return rect.position + (point - Snapshot.BOUNDS.position) / Snapshot.BOUNDS.size * rect.size
-
 func _draw() -> void:
-	var panel := StyleBoxFlat.new()
-	panel.bg_color = Color(0.055, 0.065, 0.075, 0.84)
-	panel.set_corner_radius_all(6)
-	draw_style_box(panel, Rect2(Vector2.ZERO, size))
-	var rect := map_rect()
-	draw_rect(rect, Color(0.11, 0.13, 0.14, 0.72))
-	for region in snapshot.regions:
-		draw_rect(Rect2(project(region.position), region.size / Snapshot.BOUNDS.size * rect.size), Color(0.31, 0.33, 0.33, 0.38))
-	draw_rect(rect, Color(0.65, 0.65, 0.62, 0.32), false, 1.0)
-	# Soft area marks, with an open self ring readable even in the same cell.
-	for id in ["opponent", "player"]:
-		if not snapshot.contacts.has(id): continue
-		var p := project(snapshot.contacts[id])
-		var color := WHITE if id == "player" else AMBER
-		var radius := 7.5 if id == "player" else 5.0
-		for ring in range(4, 0, -1):
-			var haze := color
-			haze.a = 0.025 * (5 - ring)
-			draw_circle(p, radius + ring * 1.6, haze, false, 2.0, true)
-		if id == "player": draw_arc(p, radius, 0, TAU, 40, color, 1.6, true)
-		else: draw_circle(p, radius, Color(color, 0.85), true, -1.0, true)
+	var center:=size*0.5
+	var radius:=size.x*0.38
+	draw_circle(center,radius+12,Color(0.055,0.065,0.075,0.78),true,-1,true)
+	draw_arc(center,radius,0,TAU,64,Color(0.65,0.65,0.62,0.25),1,true)
+	draw_circle(center,3,WHITE,true,-1,true)
+	draw_line(center+Vector2(0,-8),center+Vector2(0,-14),WHITE,1.5,true)
+	if not snapshot.present: return
+	if snapshot.overlap:
+		draw_arc(center,radius*0.6,0,TAU,64,Color(AMBER,0.35),4,true)
+		return
+	var angle: float=snapshot.sector*PI/4-PI/2
+	for width in [12,8,4]:
+		draw_arc(center,radius-4,angle-deg_to_rad(18),angle+deg_to_rad(18),24,Color(AMBER,0.12 if width>4 else 0.85),width,true)

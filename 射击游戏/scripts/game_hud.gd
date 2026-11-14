@@ -300,7 +300,7 @@ func show_help() -> void:
 	column.add_child(_label("操作说明",36))
 	column.add_child(_label("W A S D     移动       空格  跳跃\n鼠标           瞄准\n左键           AK / M4 长按连射，沙鹰单发\nR                换弹\nEsc             暂停 / 返回",22))
 	column.add_child(_label("换弹后需重新按下左键。\n落地停稳精准，移动与空中射击产生散布。\n子弹需要飞行时间，只有命中头部才能击倒。",20,ACCENT))
-	if selected_map=="assessment_yard": column.add_child(_label("箱阵考核不限时；击倒或弹尽后等待在途子弹结算。\n雷达：白环为自己，琥珀色为对手，仅显示大致区域。",18,MUTED))
+	if selected_map=="assessment_yard": column.add_child(_label("箱阵考核不限时；击倒或弹尽后等待在途子弹结算。\n雷达：上方为面朝方向，琥珀扇区提示敌人方位。",18,MUTED))
 	_focus(_action(column,"back","返回",close_help,true))
 
 func close_help() -> void:

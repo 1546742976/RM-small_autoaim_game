@@ -25,7 +25,7 @@ with socket.socket() as allocator:
     port = allocator.getsockname()[1]
 duration = 40 if args.case == 'benchmark' else 10
 token = 'local-validation-token'
-command = [str(args.game.resolve())]
+command = [str(args.game.resolve()), '--verbose']
 if not args.export:
     command += ['--path', str(ROOT / '射击游戏')]
 command += ['--resolution', args.resolution, '--log-file', str(out / 'game.log'), '--',
@@ -75,7 +75,7 @@ with (out / 'process.log').open('w', encoding='utf-8') as log:
         if process is not None and process.poll() is None:
             process.terminate()
             process.wait(timeout=5)
-text = (out / 'game.log').read_text(encoding='utf-8')
+text = (out / 'game.log').read_text(encoding='utf-8') + (out / 'process.log').read_text(encoding='utf-8')
 assert not re.search(r'SCRIPT ERROR:|^ERROR:', text, re.M), text
 if args.case == 'benchmark':
     performance = json.loads((out / 'performance.json').read_text(encoding='utf-8'))

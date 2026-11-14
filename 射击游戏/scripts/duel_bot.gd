@@ -9,6 +9,8 @@ var gun: Node3D
 var flash: MeshInstance3D
 var magazine: Node3D
 var magazine_home:=Transform3D.IDENTITY
+var shot_voices: Array[AudioStreamPlayer3D]=[]
+var sound_index:=0
 var sound: AudioStreamPlayer3D
 var rng:=RandomNumberGenerator.new()
 var route:=PackedVector3Array()
@@ -28,6 +30,7 @@ var clock:=0.0
 var repath:=0.0
 var shot_count:=0
 var flash_left:=0.0
+var footsteps: Node
 var active:=false
 var dead_time:=0.0
 var pose_elapsed:=0.0
@@ -79,6 +82,16 @@ func _ready() -> void:
 	sound.volume_db=-6
 	sound.max_distance=70
 	add_child(sound)
+	shot_voices.append(sound)
+	for i in 3:
+		var voice:=AudioStreamPlayer3D.new()
+		voice.volume_db=-6
+		voice.max_distance=70
+		add_child(voice)
+		shot_voices.append(voice)
+	footsteps=preload("res://scripts/footsteps.gd").new()
+	add_child(footsteps)
+	footsteps.configure(self,game.player.camera,false)
 	rng.seed=layout.seed_value^185723
 	_new_patrol()
 
@@ -105,7 +118,9 @@ func can_see(point: Vector3) -> bool:
 	return not hit.is_empty() and hit.collider.has_meta("player_region")
 
 func step(delta: float) -> void:
-	if not active or not target.alive: return
+	if not active or not target.alive:
+		footsteps.reset()
+		return
 	target.active=true
 	weapon.active=not game.settling
 	# NPC reserve is replenished, but the real magazine and reload clock are used.
@@ -149,6 +164,7 @@ func step(delta: float) -> void:
 	var horizontal:=Vector3(velocity.x,0,velocity.z).move_toward(desired,12*delta if desired.is_zero_approx() else 30*delta)
 	velocity=Vector3(horizontal.x,-0.1 if is_on_floor() else velocity.y-20*delta,horizontal.z)
 	move_and_slide()
+	footsteps.advance(delta,true)
 	if visible_player:
 		var muzzle: Vector3=gun.global_transform*Vector3(0,0.1975,-0.8215)
 		var desired_aim: Vector3=(last_seen+Vector3(0,1.65,0)-muzzle).normalized()
@@ -183,7 +199,10 @@ func _fire() -> void:
 	var direction: Vector3=(aim_direction+basis.x*aim_offset.x+basis.y*aim_offset.y).normalized()
 	game.projectiles.spawn(origin,direction,"bot")
 	flash_left=0.065
-	sound.play()
+	var voice: AudioStreamPlayer3D=shot_voices[sound_index]
+	sound_index=(sound_index+1)%shot_voices.size()
+	voice.stream=game.combat_sound("ak47")
+	voice.play()
 
 func pose(delta: float) -> void:
 	flash_left=maxf(0,flash_left-delta)

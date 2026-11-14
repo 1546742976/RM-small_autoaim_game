@@ -17,23 +17,26 @@ func run(controller: Node3D) -> void:
 	DirAccess.make_dir_recursive_absolute(folder)
 	await frames(3)
 	radar=get_tree().current_scene.radar
+	if "--audio-demo" in OS.get_cmdline_user_args():
+		await audio_demo()
+		print("RADAR PASS: %d checks (%d failures)"%[checks,failures])
+		get_tree().quit(1 if failures else 0)
+		return
 	check(not radar.visible,"menu hides radar")
-	for x in [-21.0,-20.0,-17.001,-17.0,20.0,21.0,100.0]:
-		for z in [-36.0,-35.0,-32.001,-32.0,35.0,36.0]:
-			var point:=Snapshot.region_center(Vector3(x,0,z))
-			check(Snapshot.BOUNDS.has_point(point),"quantized point stays inside map")
-			check(point==Snapshot.region_center(Vector3(x,10,z)),"height never changes contact")
-	check(Snapshot.region_center(Vector3(-21,0,-36))==Vector2(-19,-34),"negative corner cell center")
-	check(Snapshot.region_center(Vector3(21,0,36))==Vector2(20,34),"partial edge cell center")
 	var state:=Snapshot.new()
-	state.sample(Vector3.ZERO,Vector3(1,0,1),true,true)
-	var initial:=state.contacts.duplicate()
-	check(not state.advance(0.499,Vector3(10,0,10),Vector3(-10,0,-10),true,true) and state.contacts==initial,"half-second sample holds coarse region")
-	check(state.advance(0.001,Vector3(10,0,10),Vector3(-10,0,-10),true,true) and state.contacts!=initial,"half-second sample refreshes both sides")
-	state.sample(Vector3.ZERO,Vector3(0,6,0),true,true)
-	check(state.contacts.player==state.contacts.opponent,"same area / different height has identical center")
-	state.advance(0,Vector3.ZERO,Vector3.ZERO,false,true)
-	check(not state.contacts.has("player") and state.contacts.has("opponent"),"death removes only dead contact immediately")
+	for i in 8:
+		var angle:=i*PI/4
+		state.advance(0,Vector3.ZERO,Vector3(sin(angle),0,-cos(angle))*10,true,true,0,true)
+		check(state.sector==i,"eight directional sectors")
+	state.advance(0,Vector3.ZERO,Vector3.FORWARD*10,true,true,PI/2,true)
+	check(state.sector==2,"turning updates relative direction")
+	state.advance(0,Vector3.ZERO,Vector3.FORWARD*10,true,true,0,true)
+	state.advance(0.1,Vector3.ZERO,Vector3.RIGHT*10,true,true,0)
+	check(state.sector==0,"bearing waits for sampling interval")
+	state.advance(0.4,Vector3.ZERO,Vector3.RIGHT*10,true,true,0)
+	check(state.sector==2,"bearing updates after half second")
+	state.advance(0,Vector3.ZERO,Vector3(0,8,0),true,true,0,true)
+	check(state.overlap,"height ignored at overlapping horizontal position")
 	game.show_setup()
 	game.ui._select("assessment_yard","ak47")
 	game.start_round()
@@ -43,36 +46,36 @@ func run(controller: Node3D) -> void:
 	game.begin_training()
 	game.player.set_physics_process(false)
 	await frames()
-	check(radar.visible and radar.snapshot.contacts.size()==2,"wall-obscured opponents visible during training")
-	check(radar.snapshot.round_id==game.round_id and not radar.snapshot.regions.is_empty(),"current random map supplies coarse passages")
+	check(radar.visible and radar.snapshot.present,"wall-obscured opponents visible during training")
+	check(radar.snapshot.round_id==game.round_id,"new round supplies direction only")
 	await capture("radar-training")
 	await paired_capture()
-	var original: Dictionary=radar.snapshot.contacts.duplicate()
+	var original: float=radar.snapshot.bearing
 	game.pause_game()
 	await frames(2)
 	game.player.position.x+=8
 	await get_tree().create_timer(0.6,true).timeout
-	check(not radar.visible and radar.snapshot.contacts==original,"pause hides and freezes radar sample")
+	check(not radar.visible and radar.snapshot.bearing==original,"pause hides and freezes radar sample")
 	await capture("radar-paused")
 	game.ui.show_help()
 	await capture("radar-help")
 	game.ui.close_help()
 	game.resume_game()
 	await frames(2)
-	check(radar.visible and radar.snapshot.contacts.player!=original.player,"resume immediately refreshes")
+	check(radar.visible and radar.snapshot.bearing!=original,"resume immediately refreshes")
 	var top: Vector3=game.arena.map_root.layout.platform_center(game.arena.map_root.layout.platforms[1])
 	game.player.position=top
 	game.duel.bot.position=top+Vector3(0,-2,0)
 	radar.was_visible=false
 	await frames(2)
-	check(radar.snapshot.contacts.player==radar.snapshot.contacts.opponent,"high platform retains coarse overlap")
+	check(radar.snapshot.overlap,"high platform retains coarse overlap")
 	await capture("radar-overlap")
 	game.begin_settlement("测试结算")
 	await frames(2)
 	check(radar.visible,"settling keeps radar")
 	game.duel.player_alive=false
 	await frames(2)
-	check(not radar.snapshot.contacts.has("player"),"dead player immediately disappears")
+	check(not radar.snapshot.present,"dead player immediately disappears")
 	game.finish_round("测试结束")
 	await frames(2)
 	check(not radar.visible,"results hides radar")
@@ -81,11 +84,12 @@ func run(controller: Node3D) -> void:
 	while not game.arena.map_root.navigation_ready: await frames(1)
 	game.begin_training()
 	await frames(2)
-	check(radar.visible and radar.snapshot.round_id>previous_round and radar.snapshot.contacts.size()==2,"replay restores new round contacts")
+	check(radar.visible and radar.snapshot.round_id>previous_round and radar.snapshot.present,"replay restores new round contacts")
 	for map_id in ["old_town","training_hall"]:
 		await prepare(map_id)
 		await frames(2)
-		check(not radar.visible and radar.snapshot.contacts.is_empty(),"other map clears radar "+map_id)
+		check(not radar.visible and not radar.snapshot.present,"other map clears radar "+map_id)
+	await audio_checks()
 	if DisplayServer.get_name()!="headless": await physical_input()
 	game.show_menu()
 	var report:=FileAccess.open(folder.path_join("checks.json"),FileAccess.WRITE)
@@ -153,3 +157,98 @@ func physical_input() -> void:
 	game.resume_game()
 	game.set_physics_process(false)
 	game.weapon.set_physics_process(false)
+
+func audio_checks() -> void:
+	await prepare("training_hall")
+	game.player.set_physics_process(true)
+	await frames(12)
+	var sound=game.player.footsteps
+	var before: int=sound.count
+	Input.action_press("move_forward")
+	await frames(80)
+	Input.action_release("move_forward")
+	check(sound.count>before,"actual grounded travel produces footsteps")
+	await frames(90)
+	before=sound.count
+	await frames(30)
+	check(sound.count==before,"stationary player has no repeated steps")
+	Input.action_press("jump")
+	await frames(18)
+	Input.action_release("jump")
+	before=sound.count
+	await frames(18)
+	check(sound.count==before,"airborne movement is silent")
+	await frames(100)
+	check(sound.count==before+1,"landing produces one impact")
+	sound.emit_step("hard")
+	game.pause_game()
+	await frames(2)
+	check(sound.voice.stream_paused,"pause suspends footstep playback")
+	game.resume_game()
+	await frames(2)
+	check(not sound.voice.stream_paused,"resume releases playback pause")
+	var shot_state: int=game.shot_rng.state
+	var fingerprints: Array=[]
+	for id in ["deagle","ak47","m4a1"]:
+		var clip: AudioStreamWAV=game.combat_sound(id)
+		fingerprints.append(hash(clip.data))
+	check(fingerprints[0]!=fingerprints[1] and fingerprints[1]!=fingerprints[2],"three independent gun timbres")
+	check(game.shot_rng.state==shot_state,"audio randomness never consumes spread RNG")
+	await prepare("assessment_yard")
+	var opponent=game.duel.bot
+	var top: Vector3=game.arena.map_root.layout.platform_center(game.arena.map_root.layout.platforms[0])
+	opponent.position=top
+	await frames(3)
+	check(opponent.footsteps.surface()=="wood","platform collider selects wood Foley")
+	opponent.position=Vector3(0,0.02,33)
+	game.player.position=Vector3(0,0.02,35)
+	await frames(3)
+	opponent.footsteps.advance(0.1,true)
+	check(not opponent.footsteps.blocked,"open path keeps footsteps clear")
+	var wall:=StaticBody3D.new()
+	var collider:=CollisionShape3D.new()
+	var shape:=BoxShape3D.new()
+	shape.size=Vector3(5,5,0.2)
+	collider.shape=shape
+	wall.add_child(collider)
+	game.add_child(wall)
+	wall.position=Vector3(0,2,34)
+	await frames(3)
+	opponent.footsteps.advance(0.2,true)
+	check(opponent.footsteps.blocked and opponent.footsteps.voice.volume_db<=-15.9 and opponent.footsteps.filter.cutoff_hz<2200,"wall attenuates and low-passes opponent steps")
+	wall.free()
+	game.show_menu()
+	check(not opponent.footsteps.voice.playing,"menu stops opponent Foley")
+
+
+func audio_demo() -> void:
+	for id in ["deagle","ak47","m4a1"]:
+		await prepare("training_hall",id)
+		game.player.camera.rotation.x=0.5
+		for shot in 3:
+			game.weapon.advance_ms(500)
+			game.weapon.try_fire()
+			for tick in 60:
+				game.projectiles.advance(1.0/120)
+				await get_tree().physics_frame
+		await capture("gun-"+id)
+		await get_tree().create_timer(0.6).timeout
+	await prepare("assessment_yard")
+	game.player.reset_position(Vector3(8,0.02,34))
+	game.player.set_physics_process(true)
+	Input.action_press("move_left")
+	await frames(100)
+	Input.action_release("move_left")
+	await frames(70)
+	await capture("own-footsteps")
+	game.player.set_physics_process(false)
+	var bot=game.duel.bot
+	bot.position=Vector3(0,0.02,33)
+	bot.rotation.y=PI
+	bot.reaction=-100
+	bot.active=true
+	game.player.camera.look_at(bot.position+Vector3.UP)
+	await walk_bot(Vector3(0,0.02,35),"opponent footsteps demo")
+	check(bot.footsteps.count>0,"demo opponent emits actual movement Foley")
+	await capture("opponent-footsteps")
+	await get_tree().create_timer(0.7).timeout

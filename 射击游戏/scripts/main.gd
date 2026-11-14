@@ -31,9 +31,12 @@ var _left_button_down := false
 var round_id := 0
 var control_bridge: Node
 var shot_rng := RandomNumberGenerator.new()
+var shot_voices: Array[AudioStreamPlayer]=[]
+var shot_voice_index:=0
 var shot_sound: AudioStreamPlayer
 var hit_sound: AudioStreamPlayer
 var sounds: Dictionary = {}
+var audio_rng := RandomNumberGenerator.new()
 var duel: Node
 
 func _ready() -> void:
@@ -136,6 +139,8 @@ func _reset_player() -> void:
 
 func _stop_play() -> void:
 	projectiles.clear()
+	player.footsteps.reset()
+	for voice in shot_voices: voice.stop()
 	settling=false
 	if is_instance_valid(duel): duel.stop()
 	if is_instance_valid(control_bridge): control_bridge.invalidate("state_changed")
@@ -322,8 +327,10 @@ func _on_fired() -> void:
 	projectiles.spawn(origin,direction,"player")
 	shot_fired.emit(origin,direction)
 	player.play_shot()
-	shot_sound.stream = sounds[weapon.current_weapon]
-	shot_sound.play()
+	var voice: AudioStreamPlayer=shot_voices[shot_voice_index]
+	shot_voice_index=(shot_voice_index+1)%shot_voices.size()
+	voice.stream=combat_sound(weapon.current_weapon)
+	voice.play()
 	score_changed.emit()
 
 func _on_projectile_impact(origin: Vector3,direction: Vector3,result: Dictionary,owner_id: String) -> void:
@@ -375,15 +382,24 @@ func _update_hud() -> void:
 		"ready":weapon.fire_error().is_empty(),"accurate":ShotDirection.is_accurate(player.get_speed_ratio(),player.is_on_floor()),"reloading":weapon.is_reloading(),"settling":settling})
 
 func _setup_audio() -> void:
+	audio_rng.randomize()
 	shot_sound = AudioStreamPlayer.new()
+	shot_sound.process_mode=Node.PROCESS_MODE_PAUSABLE
 	shot_sound.volume_db = -17
 	shot_sound.max_polyphony = 4
 	add_child(shot_sound)
+	shot_voices.append(shot_sound)
+	for i in 3:
+		var voice:=AudioStreamPlayer.new()
+		voice.process_mode=Node.PROCESS_MODE_PAUSABLE
+		voice.volume_db=-17
+		add_child(voice)
+		shot_voices.append(voice)
 	hit_sound = AudioStreamPlayer.new()
 	hit_sound.volume_db = -22
 	add_child(hit_sound)
 	for id in ["deagle", "ak47", "m4a1"]:
-		sounds[id] = _tone(100.0 if id == "deagle" else 160.0, 0.10, true)
+		sounds[id] = load("res://assets/audio/combat/%s_0.wav"%id)
 	hit_sound.stream = _tone(1300.0, 0.065, false)
 
 func _tone(frequency: float, duration: float, noise: bool) -> AudioStreamWAV:
@@ -403,3 +419,6 @@ func _tone(frequency: float, duration: float, noise: bool) -> AudioStreamWAV:
 		bytes.encode_s16(i * 2, int(sample * envelope * 24000))
 	stream.data = bytes
 	return stream
+
+func combat_sound(id: String) -> AudioStream:
+	return load("res://assets/audio/combat/%s_%d.wav"%[id,audio_rng.randi_range(0,2)])
