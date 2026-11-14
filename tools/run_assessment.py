@@ -1,6 +1,6 @@
 """Run the actual assessment scene; evidence and graphics timings are separate."""
 from pathlib import Path
-import argparse, os, subprocess, re, json, hashlib, time
+import argparse, os, subprocess, re, json, hashlib, time, sys
 ROOT=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser()
 p.add_argument('--mode',choices=['checks','demo','benchmark','legacy'],default='checks')
@@ -8,6 +8,11 @@ p.add_argument('--size',default='1280x720')
 p.add_argument('--export',action='store_true')
 p.add_argument('--headless',action='store_true')
 a=p.parse_args()
+if a.mode!='legacy':
+    args=[sys.executable,str(ROOT/'tools/run_projectile.py'),'--mode',a.mode,'--size',a.size]
+    if a.export: args.append('--export')
+    if a.headless: args.append('--headless')
+    raise SystemExit(subprocess.call(args))
 out=ROOT/'artifacts/assessment'/f'{a.mode}-{a.size}{"-headless" if a.headless else ""}'
 out.mkdir(parents=True,exist_ok=True)
 engine=ROOT/'builds/windows/RMPrecisionLab.exe' if a.export else Path(r'D:\Downloads\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe')

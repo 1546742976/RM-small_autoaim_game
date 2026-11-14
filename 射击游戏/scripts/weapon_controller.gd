@@ -91,7 +91,7 @@ func try_fire() -> String:
 	mag -= 1
 	last_fire_ms = time_ms
 	fired.emit()
-	# Hit/kill callbacks have now completed, including the very last bullet.
+	# The final projectile must be registered before the round starts settling.
 	changed.emit()
 	if mag == 0:
 		if reserve > 0:

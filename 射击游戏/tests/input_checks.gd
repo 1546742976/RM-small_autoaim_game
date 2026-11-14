@@ -149,7 +149,9 @@ func run(controller: Node3D) -> void:
 			game.weapon.reserve = 0
 			button(true)
 			ticks(30)
-			check(game.phase == "results" and game.shots == 1, label_text + " final actual shot enters results once")
+			check(game.phase=="training" and game.settling and game.shots==1,label_text+" final actual shot waits in flight")
+			ticks(500)
+			check(game.phase == "results" and game.shots == 1, label_text + " final projectile enters results once")
 			check(not game.manual_fire_held and game.pending_shots == 0, label_text + " result clears hold")
 			game.start_round()
 			game.begin_training()

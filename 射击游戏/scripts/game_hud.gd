@@ -298,9 +298,9 @@ func show_help() -> void:
 	help_origin = overlay_kind
 	var column := _clear("help",680)
 	column.add_child(_label("操作说明",36))
-	column.add_child(_label("W A S D     移动\n鼠标           瞄准\n左键           AK / M4 长按连射，沙鹰单发\nR                换弹\nEsc             暂停 / 返回",22))
-	column.add_child(_label("换弹后需重新按下左键。\n停稳精准射击，移动射击产生随机散布。\n只有头部命中能够击倒目标。",20,ACCENT))
-	if selected_map=="assessment_yard": column.add_child(_label("箱阵考核：对手会主动攻击，双方仅爆头致死。",18,MUTED))
+	column.add_child(_label("W A S D     移动       空格  跳跃\n鼠标           瞄准\n左键           AK / M4 长按连射，沙鹰单发\nR                换弹\nEsc             暂停 / 返回",22))
+	column.add_child(_label("换弹后需重新按下左键。\n落地停稳精准，移动与空中射击产生散布。\n子弹需要飞行时间，只有命中头部才能击倒。",20,ACCENT))
+	if selected_map=="assessment_yard": column.add_child(_label("箱阵考核不限时；击倒或弹尽后等待在途子弹结算。\n雷达：白环为自己，琥珀色为对手，仅显示大致区域。",18,MUTED))
 	_focus(_action(column,"back","返回",close_help,true))
 
 func close_help() -> void:
@@ -326,11 +326,12 @@ func show_results(data: Dictionary) -> void:
 	_action(column,"setup","更换配置",func(): setup_requested.emit())
 
 func update_status(data: Dictionary) -> void:
+	clock_label.visible=data.remaining>=0
 	var seconds := ceili(maxf(0,data.remaining))
 	clock_label.text = "%d:%02d" % [seconds/60,seconds%60]
 	clock_label.add_theme_color_override("font_color",ACCENT if seconds <= 10 else TEXT)
 	ammo.text = "%02d / %02d" % [data.mag,data.reserve]
-	reload_label.text = "换弹中" if data.reloading else ""
+	reload_label.text = "结算中" if data.get("settling",false) else "换弹中" if data.reloading else ""
 	crosshair.can_fire = data.ready
 	crosshair.accurate = data.accurate
 

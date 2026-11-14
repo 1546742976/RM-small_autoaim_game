@@ -91,7 +91,7 @@ func run(controller: Node3D) -> void:
 	game.control_bridge = bridge
 	check(bridge.start(game,"127.0.0.1",0,"control-test"),"listener started")
 	port = bridge.server.get_local_port()
-	game.shot_resolved.connect(func(_origin: Vector3,direction: Vector3,_hit: Dictionary): ray=direction)
+	game.shot_fired.connect(func(_origin: Vector3,direction: Vector3): ray=direction)
 	var bad := await new_client()
 	check((await request(bad,{"type":"hello","token":"wrong"})).error=="unauthorized","wrong token rejected")
 	var c := await new_client()
@@ -139,7 +139,7 @@ func run(controller: Node3D) -> void:
 			game.ui._select(map_id,weapon_id)
 			game.start_round()
 			game.begin_training()
-			await frames(4)
+			await frames(12)
 			game.player.set_physics_process(false)
 			var image := await observe(c)
 			if not previous_frame.is_empty():
@@ -166,27 +166,40 @@ func run(controller: Node3D) -> void:
 				game.weapon.advance_ms(300)
 				var before: int = game.shots
 				var mag: int = game.weapon.mag
-				var forward: Vector3 = -game.player.camera.global_basis.z
+				var rng_before: int=game.shot_rng.state
 				var result := await request(c,action(image))
 				check(result.ok and result.fired and game.shots==before+1 and game.weapon.mag==mag-1,map_id+weapon_id+" remote single shot at "+str(speed))
-				check(ray.is_equal_approx(forward)==(speed<0.34),"remote shot obeys precision boundary")
+				check((game.shot_rng.state==rng_before)==(speed<0.34),"remote shot obeys precision boundary")
+				game.projectiles.clear()
 			game.player._horizontal_speed = 0
 			game.weapon.reset(weapon_id)
 			game.weapon.active = true
 			var target: Node3D = game.arena.targets[0]
 			game.player.reset_position(game.arena.map_root.test_views[0])
-			await frames(3)
+			game.player.set_physics_process(true)
+			await frames(12)
+			game.player.set_physics_process(false)
 			image = await observe(c)
 			var before_hits: int = game.hits
 			var result := await request(c,target_action(image,target.get_node("Body").global_position))
+			while game.projectiles.live_count()>0:
+				await request(c,{"type":"ping"})
+				await frames(2)
 			check(result.fired and game.hits==before_hits+1 and target.hp==100,"remote body hit has zero damage")
 			game.weapon.advance_ms(300)
 			game.weapon.mag = 1
 			game.weapon.reserve = 0
 			var before_kills: int = game.kills
 			result = await request(c,target_action(image,target.get_node("Head").global_position))
+			check(result.fired and game.settling,"remote last projectile enters settling")
+			while game.projectiles.live_count()>0:
+				await request(c,{"type":"ping"})
+				await frames(2)
 			check(result.fired and game.phase=="results" and game.kills==before_kills+1,"remote aim then last headshot counts before results")
 			game.player.set_physics_process(true)
+	await radar_and_settlement(c)
+	game.show_setup()
+	game._select_loadout("training_hall","ak47")
 	# Guard behavior in an active round.
 	game.start_round()
 	game.begin_training()
@@ -284,3 +297,64 @@ func run(controller: Node3D) -> void:
 	await frames(4)
 	print("CONTROL PASS: %d checks (%d failures)" % [checks,failures])
 	get_tree().quit(0 if failures==0 else 1)
+
+func radar_and_settlement(c: Dictionary) -> void:
+	for weapon_id in ["deagle","ak47","m4a1"]:
+		game.show_setup()
+		game._select_loadout("assessment_yard",weapon_id)
+		game.start_round()
+		while not game.arena.map_root.navigation_ready:
+			await request(c,{"type":"ping"})
+			await frames(1)
+		game.begin_training()
+		await frames(12)
+		var image:=await observe(c)
+		check(image.state.remaining_s==-1 and image.state.game_time_s>=0 and not image.state.settling,"unlimited yard state "+weapon_id)
+		var header:=image.duplicate()
+		header.erase("image")
+		var text:=JSON.stringify(header).to_lower()
+		for forbidden in ["target","radar","position","layout","seed","head","visible","opponent"]:
+			check(not forbidden in text,"no local radar data in protocol: "+forbidden)
+		game.player.apply_look_delta(0,60)
+		var result:=await request(c,action(image))
+		check(result.fired and game.shots==1 and game.projectiles.live_count()>0,"yard remote launch is one moving projectile "+weapon_id)
+		game.begin_settlement("测试在途结算")
+		result=await request(c,action(image,1,0,true))
+		check(result.look_applied and not result.fired and result.fire_error=="round_finishing","settlement permits live player look but no new shot")
+		result=await request(c,{"type":"reload","frame_id":image.frame_id,"round_id":image.round_id})
+		check(not result.reloaded and result.reload_error=="round_finishing","settlement cannot reload")
+		if weapon_id!="ak47": continue
+		# Freeze the fixture while both the socket JPEG and local window are read.
+		game.set_physics_process(false)
+		game.player.set_physics_process(false)
+		game.weapon.set_physics_process(false)
+		await frames(12)
+		image=await observe(c)
+		var decoded:=Image.new()
+		decoded.load_jpg_from_buffer(image.image)
+		await RenderingServer.frame_post_draw
+		var window:=get_window().get_texture().get_image()
+		var clean:=get_viewport().get_texture().get_image()
+		var radar: Control=get_tree().current_scene.radar
+		check(radar.visible,"local radar remains visible while requesting JPEG")
+		var error:=0.0
+		var local_difference:=0.0
+		var samples:=0
+		var rect:=radar.get_global_rect().grow(-8)
+		for y in range(int(rect.position.y),int(rect.end.y),4):
+			for x in range(int(rect.position.x),int(rect.end.x),4):
+				var a:=decoded.get_pixel(x,y)
+				var b:=clean.get_pixel(x,y)
+				var d:=window.get_pixel(x,y)
+				error+=absf(a.r-b.r)+absf(a.g-b.g)+absf(a.b-b.b)
+				local_difference+=absf(a.r-d.r)+absf(a.g-d.g)+absf(a.b-d.b)
+				samples+=1
+		check(error/samples<0.09 and local_difference/samples>0.12,"actual TCP JPEG preserves original pixels beneath local radar")
+		if not capture_dir.is_empty():
+			window.save_png(capture_dir.path_join("radar-local.png"))
+			clean.save_png(capture_dir.path_join("radar-clean.png"))
+			var file:=FileAccess.open(capture_dir.path_join("radar-program.jpg"),FileAccess.WRITE)
+			file.store_buffer(image.image)
+		game.set_physics_process(true)
+		game.player.set_physics_process(true)
+		game.weapon.set_physics_process(true)

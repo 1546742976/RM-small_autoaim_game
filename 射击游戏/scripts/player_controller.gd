@@ -6,6 +6,7 @@ const ACCELERATION := 30.0
 const FRICTION := 12.0
 const COUNTER_ACCELERATION := 48.0
 const SENSITIVITY := 0.0022
+const JUMP_SPEED := 6.3
 signal control_changed
 
 var active: bool = false
@@ -26,7 +27,8 @@ var _weapon_id: String = "deagle"
 func _ready() -> void:
 	name = "Player"
 	collision_layer = 4
-	collision_mask = 1
+	collision_mask = 1|8|64
+	floor_snap_length=0.3
 	var shape := CapsuleShape3D.new()
 	shape.radius = 0.3
 	shape.height = 1.8
@@ -52,7 +54,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseMotion:
 		if remote_controlled: return
-		for flag in ["--assessment-checks", "--assessment-demo", "--assessment-benchmark", "--smoke-test", "--showcase", "--benchmark", "--spread-demo", "--reload-showcase", "--viewmodel-checks", "--viewmodel-benchmark"]:
+		for flag in ["--radar-checks", "--projectile-benchmark", "--projectile-checks", "--projectile-demo", "--assessment-checks", "--assessment-demo", "--assessment-benchmark", "--smoke-test", "--showcase", "--benchmark", "--spread-demo", "--reload-showcase", "--viewmodel-checks", "--viewmodel-benchmark"]:
 			if flag in OS.get_cmdline_user_args() and not event.has_meta("smoke_motion"):
 				return
 		rotate_y(-event.relative.x * SENSITIVITY)
@@ -84,7 +86,7 @@ func _physics_process(delta: float) -> void:
 	velocity.x = horizontal.x
 	velocity.z = horizontal.z
 	if is_on_floor():
-		velocity.y = -0.1
+		velocity.y = JUMP_SPEED if Input.is_action_just_pressed("jump") else -0.1
 	else:
 		velocity.y -= 20.0 * delta
 	move_and_slide()
@@ -97,6 +99,7 @@ func get_speed_ratio() -> float:
 
 
 func reset_position(pos: Vector3 = Vector3(0, 0.02, 9), yaw: float = 0.0) -> void:
+	collision_layer=4
 	position = pos
 	rotation = Vector3(0, yaw, 0)
 	_pitch = 0.0

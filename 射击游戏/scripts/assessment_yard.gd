@@ -4,6 +4,8 @@ var layout=Layout.new()
 var generation_seed:=0
 var bot_spawn:=Vector3(0,0.02,-33)
 var generation_ms:=0.0
+var navigation_ready:=false
+var navigation_region: NavigationRegion3D
 
 func _ready() -> void:
 	var start:=Time.get_ticks_usec()
@@ -37,8 +39,8 @@ func _ready() -> void:
 	floor_mat.uv1_scale=Vector3.ONE*0.4
 	_box(Vector3(42,0.4,72),Vector3(0,-0.2,0),floor_mat,true)
 	var wall:=_material(Color("777c7b"))
-	for x in [-21.25,21.25]: _box(Vector3(0.5,7,72),Vector3(x,3.5,0),wall,true)
-	for z in [-36.25,36.25]: _box(Vector3(43,7,0.5),Vector3(0,3.5,z),wall,true)
+	for x in [-21.25,21.25]: _box(Vector3(0.5,9,72),Vector3(x,4.5,0),wall,true)
+	for z in [-36.25,36.25]: _box(Vector3(43,9,0.5),Vector3(0,4.5,z),wall,true)
 	var materials: Array[Material]=[]
 	for color in [Color("a98a60"),Color("8e785b"),Color("b49b76")]:
 		var mat:=_material(color)
@@ -52,7 +54,7 @@ func _ready() -> void:
 		for x in Layout.SIZE.x:
 			var p:=Vector2i(x,z)
 			var count: int=layout.height_at(p)
-			if count==0: continue
+			if count==0 or count==4: continue
 			var pos: Vector3=layout.world(p)
 			var body:=StaticBody3D.new()
 			body.collision_layer=1
@@ -79,4 +81,61 @@ func _ready() -> void:
 		batch.multimesh=multi
 		add_child(batch)
 	for z in [-30.0,30.0]: _box(Vector3(41,0.01,0.12),Vector3(0,0.008,z),_material(Color("d9ad66")),false)
+	for platform in layout.platforms: _platform(platform,materials[0])
 	generation_ms=(Time.get_ticks_usec()-start)/1000.0
+	_build_navigation()
+
+func _platform(config: Dictionary,mat: Material) -> void:
+	var center: Vector3=layout.platform_center(config)
+	center.y=0
+	_box(Vector3(4,2,4),center+Vector3(0,1,0),mat,true)
+	var trim:=_material(Color("d9ad66"))
+	for sign_z in [-1,1]:
+		var stair_center:=center+Vector3(0,0,sign_z*4)
+		# Ten visible treads share a smooth solid ramp for both characters.
+		for step in 10:
+			var height: float=(step+1)*0.2
+			var z: float=sign_z*(5.8-step*0.4)
+			_box(Vector3(2,height,0.4),center+Vector3(0,height*0.5,z),mat,false)
+		var body:=StaticBody3D.new()
+		var shape:=CollisionShape3D.new()
+		var wedge:=ConvexPolygonShape3D.new()
+		var points:=PackedVector3Array()
+		for x in [-1.0,1.0]:
+			points.append(Vector3(x,0,sign_z*2))
+			points.append(Vector3(x,0,-sign_z*2))
+			points.append(Vector3(x,2,-sign_z*2))
+		wedge.points=points
+		shape.shape=wedge
+		body.add_child(shape)
+		body.position=stair_center
+		add_child(body)
+		_box(Vector3(2,0.02,0.12),center+Vector3(0,2.015,sign_z*1.9),trim,false)
+
+func _build_navigation() -> void:
+	NavigationServer3D.map_set_cell_height(get_world_3d().navigation_map,0.1)
+	add_to_group("yard_navigation_source")
+	navigation_region=NavigationRegion3D.new()
+	var mesh:=NavigationMesh.new()
+	mesh.cell_size=0.25
+	mesh.cell_height=0.1
+	mesh.agent_height=1.8
+	mesh.agent_radius=0.5
+	mesh.agent_max_climb=0.2
+	mesh.agent_max_slope=35.0
+	mesh.geometry_parsed_geometry_type=NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
+	mesh.geometry_source_geometry_mode=NavigationMesh.SOURCE_GEOMETRY_GROUPS_WITH_CHILDREN
+	mesh.geometry_source_group_name="yard_navigation_source"
+	navigation_region.navigation_mesh=mesh
+	add_child(navigation_region)
+	navigation_region.bake_finished.connect(_navigation_baked)
+	navigation_region.bake_navigation_mesh(true)
+
+func _navigation_baked() -> void:
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	navigation_ready=true
+
+func navigation_path(from: Vector3,to: Vector3) -> PackedVector3Array:
+	if not navigation_ready: return PackedVector3Array()
+	return NavigationServer3D.map_get_path(get_world_3d().navigation_map,from,to,true)

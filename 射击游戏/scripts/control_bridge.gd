@@ -184,28 +184,29 @@ func apply_pending() -> void:
 		return
 	var result := {"ok":true}
 	if request.type == "act":
-		game.player.apply_look_delta(float(request.yaw_deg),float(request.pitch_deg))
-		result.look_applied = true
+		if game.player.active: game.player.apply_look_delta(float(request.yaw_deg),float(request.pitch_deg))
+		result.look_applied = game.player.active
 		result.fired = false
 		result.fire_error = "not_requested"
 		if request.fire:
 			var fire_error: String = job.fire_error
+			if game.settling: fire_error="round_finishing"
 			if fire_error.is_empty(): fire_error = game.weapon.try_fire()
 			result.fired = fire_error.is_empty()
 			result.fire_error = fire_error
 	else:
-		result.reloaded = game.weapon.start_reload()
-		result.reload_error = "" if result.reloaded else "reloading" if game.weapon.is_reloading() else "no_reserve" if game.weapon.reserve<=0 else "mag_full"
+		result.reloaded = not game.settling and game.weapon.start_reload()
+		result.reload_error = "round_finishing" if game.settling else "" if result.reloaded else "reloading" if game.weapon.is_reloading() else "no_reserve" if game.weapon.reserve<=0 else "mag_full"
 	result.state = state()
 	_reply(c,request.id,result)
 
 func state() -> Dictionary:
 	return {"round_id":game.round_id,"phase":game.phase,"paused":get_tree().paused,
-		"game_time_s":60.0-game.remaining if game.phase in ["training","results"] else 0.0,
+		"game_time_s":game.elapsed if game.phase in ["training","results"] else 0.0,"settling":game.settling,
 		"remaining_s":game.remaining,"weapon":game.weapon.current_weapon,
 		"mag":game.weapon.mag,"reserve":game.weapon.reserve,"reloading":game.weapon.is_reloading(),
 		"can_fire":not get_tree().paused and game.phase=="training" and game.weapon.fire_error().is_empty(),
-		"is_accurate":Direction.is_accurate(game.player.get_speed_ratio()),"shot_count":game.shots,
+		"is_accurate":Direction.is_accurate(game.player.get_speed_ratio(),game.player.is_on_floor()),"shot_count":game.shots,
 		"yaw_deg":-rad_to_deg(game.player.rotation.y),"pitch_deg":rad_to_deg(game.player._pitch)}
 
 func _capture() -> void:

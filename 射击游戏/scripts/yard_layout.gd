@@ -5,6 +5,7 @@ const DIRS := [Vector2i.LEFT,Vector2i.RIGHT,Vector2i.UP,Vector2i.DOWN]
 var cells := PackedInt32Array()
 var lanes: Array = []
 var links: Array = []
+var platforms: Array[Dictionary] = []
 var seed_value := 0
 var road_signature := ""
 var navigation := AStarGrid2D.new()
@@ -17,6 +18,9 @@ func generate(value: int) -> void:
 	cells.fill(1)
 	lanes.clear()
 	links.clear()
+	platforms.clear()
+	for band in 3:
+		platforms.append({"band":band,"x":band*7+(0 if rng.randi_range(0,1)==0 else 5),"z":rng.randi_range(14,16)})
 	for z in [0,1,2,33,34,35]:
 		for x in SIZE.x: cells[z*SIZE.x+x]=0
 	for band in 3:
@@ -24,8 +28,10 @@ func generate(value: int) -> void:
 		var x:=band*7+rng.randi_range(1,4)
 		points.append(Vector2i(x,2))
 		for z in [7,13,19,25,33]:
-			var nx:=band*7+rng.randi_range(1,4)
-			if nx==x: nx=band*7+1+(nx-band*7)%4
+			var low:=2 if z in [7,13,19] and platforms[band].x==band*7 else 1
+			var high:=3 if z in [7,13,19] and platforms[band].x!=band*7 else 4
+			var nx:=band*7+rng.randi_range(low,high)
+			if nx==x: nx=band*7+low+(nx-band*7-low+1)%(high-low+1)
 			points.append(Vector2i(x,z))
 			points.append(Vector2i(nx,z))
 			x=nx
@@ -38,10 +44,17 @@ func generate(value: int) -> void:
 			var b:=Vector2i((pair+1)*7+5,z)
 			carve(a,b)
 			links.append([a,b])
-	road_signature=var_to_str([lanes,links]).sha256_text()
+	for platform in platforms:
+		# Two ground approaches connect the opposite stair entrances to a lane.
+		for z in [platform.z-2,platform.z+6]:
+			carve(Vector2i(platform.x,z),Vector2i(platform.band*7+3,z))
+	road_signature=var_to_str([lanes,links,platforms]).sha256_text()
 	# Retain a continuous crate footprint; random stacks vary every outline.
 	for i in cells.size():
 		if cells[i]!=0: cells[i]=rng.randi_range(1,3)
+	for platform in platforms:
+		for z in range(platform.z,platform.z+6):
+			for x in range(platform.x,platform.x+2): cells[z*SIZE.x+x]=4
 	navigation.region=Rect2i(Vector2i.ZERO,SIZE)
 	navigation.cell_size=Vector2(2,2)
 	navigation.diagonal_mode=AStarGrid2D.DIAGONAL_MODE_NEVER
@@ -91,4 +104,7 @@ func valid() -> bool:
 		for x in SIZE.x:
 			var p:=Vector2i(x,z)
 			if height_at(p)==0 and not visited.has(p): return false
-	return lanes.size()==3 and links.size()==4
+	return lanes.size()==3 and links.size()==4 and platforms.size()==3
+
+func platform_center(platform: Dictionary) -> Vector3:
+	return world(Vector2i(platform.x,platform.z))+Vector3(1,2,5)

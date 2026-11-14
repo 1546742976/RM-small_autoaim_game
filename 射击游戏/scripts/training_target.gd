@@ -1,4 +1,4 @@
-extends Node3D
+extends CharacterBody3D
 ## Fixed tracks only. Bone-following hit regions have no AI or attack behavior.
 
 const Rules = preload("res://scripts/game_rules.gd")
@@ -8,6 +8,7 @@ var hp := 100
 var alive := true
 var active := false
 var moving := false
+var solid_enabled := true
 var target_index := 0
 var _origin: Vector3
 var _time := 0.0
@@ -22,6 +23,15 @@ func setup(index: int, is_moving: bool) -> void:
 	moving = is_moving
 
 func _ready() -> void:
+	collision_layer=64 if solid_enabled else 0
+	collision_mask=1|4|8|64
+	var body_shape:=CollisionShape3D.new()
+	var capsule:=CapsuleShape3D.new()
+	capsule.radius=0.3
+	capsule.height=1.8
+	body_shape.shape=capsule
+	body_shape.position.y=0.9
+	add_child(body_shape)
 	_origin = position
 	name = "Target_%02d" % (target_index + 1)
 	_visuals = Visual.new()
@@ -50,7 +60,10 @@ func _physics_process(delta: float) -> void:
 			_restore()
 		return
 	if moving:
-		position = path_start.lerp(path_end, (sin(_time * 0.8) + 1.0) * 0.5)
+		var destination:=path_start.lerp(path_end, (sin(_time * 0.8) + 1.0) * 0.5)
+		velocity=(destination-position)/delta
+		velocity=velocity.limit_length(path_start.distance_to(path_end)*0.4)
+		move_and_slide()
 	_visuals.sample(_time, -1.0)
 	_sync_regions()
 
@@ -61,6 +74,7 @@ func apply_hit(headshot: bool) -> Dictionary:
 	hp = int(result.hp)
 	if result.killed:
 		alive = false
+		collision_layer=0
 		_respawn_left = 1.0
 		for region in _regions:
 			region.area.collision_layer = 0
@@ -73,6 +87,7 @@ func reset_target() -> void:
 	_restore()
 
 func _restore() -> void:
+	collision_layer=64 if solid_enabled else 0
 	hp = 100
 	alive = true
 	_respawn_left = 0.0

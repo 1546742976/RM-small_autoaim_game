@@ -9,7 +9,7 @@ func frames(count: int) -> void:
 
 func capture(label_text: String) -> void:
 	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(destination.path_join(label_text+".png"))
+	get_window().get_texture().get_image().save_png(destination.path_join(label_text+".png"))
 
 func equip(map_id: String, id: String) -> void:
 	game.show_setup()
@@ -46,7 +46,7 @@ func previews() -> void:
 			game.player.camera.look_at(Vector3(-13,2,-4))
 		await frames(30)
 		await RenderingServer.frame_post_draw
-		var image := get_viewport().get_texture().get_image()
+		var image := get_window().get_texture().get_image()
 		image.resize(768,432,Image.INTERPOLATE_LANCZOS)
 		image.save_png(destination.path_join(map_id+".png"))
 	for id: String in ["deagle","ak47","m4a1"]:

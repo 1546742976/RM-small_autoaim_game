@@ -26,8 +26,6 @@ var aim_direction:=Vector3.FORWARD
 var visible_player:=false
 var clock:=0.0
 var repath:=0.0
-var shot_collision: Dictionary={}
-var shot_pending:=false
 var shot_count:=0
 var flash_left:=0.0
 var active:=false
@@ -36,7 +34,8 @@ var pose_elapsed:=0.0
 
 func _ready() -> void:
 	collision_layer=8
-	collision_mask=5
+	collision_mask=1|4|64
+	floor_snap_length=0.35
 	var shape:=CollisionShape3D.new()
 	var capsule:=CapsuleShape3D.new()
 	capsule.radius=0.3
@@ -45,6 +44,7 @@ func _ready() -> void:
 	shape.position.y=0.9
 	add_child(shape)
 	target=Target.new()
+	target.solid_enabled=false
 	target.setup(0,false)
 	# Source actor faces +Z; controller and weapon use Godot's -Z forward.
 	target.rotation.y=PI
@@ -84,10 +84,12 @@ func _ready() -> void:
 
 func _new_patrol() -> void:
 	patrol.clear()
-	var points: Array=layout.lanes[rng.randi_range(0,2)].duplicate()
+	var band:=rng.randi_range(0,2)
+	var points: Array=layout.lanes[band].duplicate()
 	var toward_far:=global_position.z>0
 	if toward_far: points.reverse()
 	for p in points: patrol.append(layout.world(p))
+	patrol.insert(patrol.size()/2,layout.platform_center(layout.platforms[band]))
 	patrol.append(layout.world(Vector2i(10,1 if toward_far else 34)))
 	patrol_index=0
 	goal=patrol[0]
@@ -103,10 +105,9 @@ func can_see(point: Vector3) -> bool:
 	return not hit.is_empty() and hit.collider.has_meta("player_region")
 
 func step(delta: float) -> void:
-	shot_pending=false
 	if not active or not target.alive: return
 	target.active=true
-	weapon.active=true
+	weapon.active=not game.settling
 	# NPC reserve is replenished, but the real magazine and reload clock are used.
 	weapon.reserve=50
 	weapon.advance_ms(delta*1000)
@@ -136,7 +137,7 @@ func step(delta: float) -> void:
 			else: goal=patrol[patrol_index]
 			repath=0
 		if repath<=0:
-			route=layout.path(global_position,goal)
+			route=game.arena.map_root.navigation_path(global_position,goal)
 			waypoint=1 if route.size()>1 else 0
 			repath=0.35
 		if waypoint<route.size():
@@ -153,7 +154,7 @@ func step(delta: float) -> void:
 		var desired_aim: Vector3=(last_seen+Vector3(0,1.65,0)-muzzle).normalized()
 		var amount:=minf(1,PI*delta/maxf(0.0001,aim_direction.angle_to(desired_aim)))
 		aim_direction=aim_direction.slerp(desired_aim,amount).normalized()
-		if reaction>=0.45 and horizontal.length()/3.5<0.34 and aim_direction.angle_to(desired_aim)<deg_to_rad(0.6):
+		if not game.settling and is_on_floor() and reaction>=0.45 and horizontal.length()/3.5<0.34 and aim_direction.angle_to(desired_aim)<deg_to_rad(0.6):
 			if burst_left==0 and burst_wait<=0 and not weapon.is_reloading():
 				burst_left=3
 				var angle:=rng.randf()*TAU
@@ -173,12 +174,14 @@ func step(delta: float) -> void:
 func _fire() -> void:
 	shot_count+=1
 	var origin: Vector3=gun.global_transform*Vector3(0,0.1975,-0.8215)
+	var eye:=global_position+Vector3(0,1.65,0)
+	var guard:=PhysicsRayQueryParameters3D.create(eye,origin,17)
+	guard.collide_with_areas=true
+	var obstruction:=get_world_3d().direct_space_state.intersect_ray(guard)
+	if not obstruction.is_empty(): origin=obstruction.position+(eye-origin).normalized()*0.011
 	var basis:=Basis.looking_at(aim_direction)
 	var direction: Vector3=(aim_direction+basis.x*aim_offset.x+basis.y*aim_offset.y).normalized()
-	var query:=PhysicsRayQueryParameters3D.create(origin,origin+direction*100,1|16)
-	query.collide_with_areas=true
-	shot_collision=get_world_3d().direct_space_state.intersect_ray(query)
-	shot_pending=true
+	game.projectiles.spawn(origin,direction,"bot")
 	flash_left=0.065
 	sound.play()
 

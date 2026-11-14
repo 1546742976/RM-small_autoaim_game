@@ -12,7 +12,7 @@ func frames(count: int) -> void:
 func capture(name_text: String) -> void:
 	if DisplayServer.get_name() == "headless": return
 	await RenderingServer.frame_post_draw
-	var result := get_viewport().get_texture().get_image().save_png(folder.path_join(name_text+".png"))
+	var result := get_window().get_texture().get_image().save_png(folder.path_join(name_text+".png"))
 	assert(result == OK)
 
 func equip(map_id: String, weapon_id: String) -> void:

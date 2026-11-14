@@ -17,7 +17,7 @@ func frames(count: int) -> void:
 
 func capture(name_text: String) -> void:
 	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(folder.path_join(name_text+".png"))
+	get_window().get_texture().get_image().save_png(folder.path_join(name_text+".png"))
 
 func run(controller: Node3D) -> void:
 	game = controller
@@ -58,6 +58,7 @@ func run(controller: Node3D) -> void:
 	caption.offset_left = -360
 	caption.offset_right = 360
 	caption.offset_top = 88
+	game.shot_fired.connect(record_launch)
 	game.shot_resolved.connect(record)
 	await frames(60)
 	var tick := 0
@@ -69,6 +70,7 @@ func run(controller: Node3D) -> void:
 			game.pending_shots = 1
 		await frames(1)
 		tick += 1
+	while game.projectiles.live_count()>0: await frames(1)
 	await capture("moving-spread")
 	Input.action_release("move_right")
 	Input.action_release("move_left")
@@ -84,24 +86,35 @@ func run(controller: Node3D) -> void:
 	for i in 6:
 		game.pending_shots = 1
 		await frames(16)
+	while game.projectiles.live_count()>0: await frames(1)
 	await capture("stopped-precision")
 	await frames(120)
 	var file := FileAccess.open(folder.path_join("shots.json"),FileAccess.WRITE)
 	file.store_string(JSON.stringify(records,"\t"))
 	print("SPREAD DEMO: %d moving, %d accurate shots" % [moving_count,accurate_count])
+	game.shot_fired.disconnect(record_launch)
 	game.shot_resolved.disconnect(record)
 	game.shot_sound.stop()
 	game.hit_sound.stop()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	get_tree().quit(0 if moving_count == 18 and accurate_count == 6 else 1)
 
-func record(origin: Vector3, direction: Vector3, hit: Dictionary) -> void:
+func record_launch(origin: Vector3, direction: Vector3) -> void:
 	if stage == "moving": moving_count += 1
 	else: accurate_count += 1
-	var impact: Vector3 = hit.get("position",origin+direction*100)
 	records.append({"stage":stage,"speed_ratio":game.player.get_speed_ratio(),
-		"origin":[origin.x,origin.y,origin.z],"direction":[direction.x,direction.y,direction.z],
-		"impact":[impact.x,impact.y,impact.z],"board_hit":hit.get("collider") == board})
+		"origin":[origin.x,origin.y,origin.z],"direction":[direction.x,direction.y,direction.z]})
+
+func record(origin: Vector3, direction: Vector3, hit: Dictionary) -> void:
+	var impact: Vector3 = hit.get("position",origin+direction*100)
+	for entry in records:
+		if entry.has("impact"): continue
+		var recorded_origin:=Vector3(entry.origin[0],entry.origin[1],entry.origin[2])
+		var recorded_direction:=Vector3(entry.direction[0],entry.direction[1],entry.direction[2])
+		if recorded_origin.is_equal_approx(origin) and recorded_direction.is_equal_approx(direction):
+			entry.impact=[impact.x,impact.y,impact.z]
+			entry.board_hit=hit.get("collider")==board
+			break
 	if hit.get("collider") != board: return
 	var dot := MeshInstance3D.new()
 	var sphere := SphereMesh.new()

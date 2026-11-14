@@ -11,3 +11,6 @@
 `-DRM_WITH_OPENCV=OFF` 可仅构建核心客户端与联调工具。代码也提供 Windows Winsock 实现，便于本机回环验证；MinGW Makefiles 构建请把源码放在英文路径。网络失败不自动重发动作，连接空闲时每秒调用 `ping()`。
 
 `third_party/nlohmann/` 为原版 nlohmann/json 3.11.3 及 MIT 许可证；其余客户端代码适用本目录 MIT 许可证。OpenCV 作为外部系统依赖，不随这个源码包分发二进制。
+
+
+当前游戏采用实体子弹：`fired=true` 仅代表发射成功，命中可能随后发生。箱阵 `remaining_s=-1` 表示不限时，新增 `settling` 表示等待在途子弹；程序图像包含枪械与基础 HUD，但不包含本地箱阵雷达。空格跳跃仍由人控制，空中射击有散布。状态按 JSON 返回，现有客户端兼容这些新增字段。

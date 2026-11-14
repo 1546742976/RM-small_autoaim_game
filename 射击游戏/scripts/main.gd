@@ -1,6 +1,7 @@
 extends Node3D
 signal phase_changed(phase: String)
 signal score_changed
+signal shot_fired(origin: Vector3, direction: Vector3)
 signal shot_resolved(origin: Vector3, direction: Vector3, collision: Dictionary)
 const Rules = preload("res://scripts/game_rules.gd")
 const ShotDirection = preload("res://scripts/shot_direction.gd")
@@ -14,6 +15,10 @@ var weapon: Node
 var ui: CanvasLayer
 var phase := "menu"
 var remaining := 0.0
+var elapsed := 0.0
+var settling := false
+var settlement_reason := ""
+var projectiles: Node3D
 var selected_map := "old_town"
 var selected_weapon := "deagle"
 var shots := 0
@@ -49,8 +54,11 @@ func _ready() -> void:
 	add_child(weapon)
 	weapon.fired.connect(_on_fired)
 	weapon.reload_started.connect(clear_manual_fire)
-	weapon.depleted.connect(func():
-		if not is_instance_valid(duel): finish_round("弹药耗尽"))
+	weapon.depleted.connect(func(): begin_settlement("弹药耗尽"))
+	projectiles=preload("res://scripts/projectile_system.gd").new()
+	projectiles.process_mode=Node.PROCESS_MODE_PAUSABLE
+	add_child(projectiles)
+	projectiles.impacted.connect(_on_projectile_impact)
 	ui = GameHUD.new()
 	add_child(ui)
 	ui.setup_requested.connect(show_setup)
@@ -68,7 +76,15 @@ func _ready() -> void:
 		if not control_bridge.configure(self):
 			get_tree().quit(1)
 			return
-	if "--assessment-checks" in OS.get_cmdline_user_args() or "--assessment-demo" in OS.get_cmdline_user_args() or "--assessment-benchmark" in OS.get_cmdline_user_args():
+	if "--radar-checks" in OS.get_cmdline_user_args():
+		var checks=load("res://tests/radar_checks.gd").new()
+		add_child(checks)
+		checks.call_deferred("run",self)
+	elif "--projectile-checks" in OS.get_cmdline_user_args() or "--projectile-demo" in OS.get_cmdline_user_args() or "--projectile-benchmark" in OS.get_cmdline_user_args():
+		var checks=load("res://tests/projectile_checks.gd").new()
+		add_child(checks)
+		checks.call_deferred("run",self)
+	elif "--assessment-checks" in OS.get_cmdline_user_args() or "--assessment-demo" in OS.get_cmdline_user_args() or "--assessment-benchmark" in OS.get_cmdline_user_args():
 		var checks=load("res://tests/assessment_checks.gd").new()
 		add_child(checks)
 		checks.call_deferred("run",self)
@@ -106,7 +122,7 @@ func _ready() -> void:
 		presentation.call_deferred("run",self)
 
 func _setup_inputs() -> void:
-	var bindings := {"move_forward":KEY_W,"move_back":KEY_S,"move_left":KEY_A,"move_right":KEY_D,"reload":KEY_R}
+	var bindings := {"move_forward":KEY_W,"move_back":KEY_S,"move_left":KEY_A,"move_right":KEY_D,"reload":KEY_R,"jump":KEY_SPACE}
 	for action in bindings:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
@@ -119,6 +135,8 @@ func _reset_player() -> void:
 	player.reset_position(spawn.origin,spawn.basis.get_euler().y)
 
 func _stop_play() -> void:
+	projectiles.clear()
+	settling=false
 	if is_instance_valid(duel): duel.stop()
 	if is_instance_valid(control_bridge): control_bridge.invalidate("state_changed")
 	get_tree().paused = false
@@ -170,6 +188,9 @@ func start_round() -> void:
 	hits = 0
 	kills = 0
 	headshots = 0
+	elapsed = 0.0
+	settling = false
+	settlement_reason = ""
 	remaining = 3.0
 	phase = "countdown"
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -178,14 +199,27 @@ func start_round() -> void:
 
 func begin_training() -> void:
 	if phase != "countdown": return
+	if selected_map=="assessment_yard" and not arena.map_root.navigation_ready: return
 	phase = "training"
-	remaining = 60.0
+	remaining = -1.0 if selected_map=="assessment_yard" else 60.0
 	weapon.active = true
 	player.active = true
 	arena.set_active(true)
 	ui.hide_overlay()
 	_update_hud()
 	phase_changed.emit(phase)
+
+func begin_settlement(reason: String) -> void:
+	if phase!="training" or settling: return
+	settling=true
+	settlement_reason=reason
+	clear_manual_fire()
+	weapon.active=false
+	weapon.reload_left_ms=0
+	player.update_reload(0,1)
+	if is_instance_valid(duel):
+		duel.bot.weapon.active=false
+		duel.bot.weapon.reload_left_ms=0
 
 func finish_round(reason: String) -> void:
 	if phase != "training": return
@@ -231,7 +265,7 @@ func set_primary_pressed(pressed: bool) -> void:
 		return
 	if _left_button_down: return
 	_left_button_down = true
-	if get_tree().paused or phase != "training" or player.remote_controlled: return
+	if get_tree().paused or phase != "training" or settling or player.remote_controlled: return
 	var error: String = weapon.fire_error()
 	# Holding is ongoing intent, not a queue of future shots. A reload never arms it.
 	manual_fire_held = weapon.current_weapon in ["ak47", "m4a1"] and error in ["", "cooldown"]
@@ -244,14 +278,15 @@ func clear_manual_fire() -> void:
 func _physics_process(delta: float) -> void:
 	if get_tree().paused: return
 	if phase == "countdown":
+		if selected_map=="assessment_yard" and not arena.map_root.navigation_ready: return
 		remaining = maxf(0,remaining-delta)
 		ui.update_countdown(ceili(remaining))
 		if remaining <= 0: begin_training()
 	elif phase == "training":
-		remaining = maxf(0,remaining-delta)
-		if remaining <= 0 and not is_instance_valid(duel):
-			finish_round("时间到")
-			return
+		elapsed+=delta
+		if remaining>=0:
+			remaining=maxf(0,remaining-delta)
+			if remaining<=0: begin_settlement("时间到")
 		if is_instance_valid(duel): duel.step(delta)
 		if is_instance_valid(control_bridge): control_bridge.apply_pending()
 		var attempts := pending_shots
@@ -260,23 +295,42 @@ func _physics_process(delta: float) -> void:
 			if phase == "training": weapon.try_fire()
 		if phase == "training" and manual_fire_held and not player.remote_controlled and attempts == 0:
 			weapon.try_fire()
-		if is_instance_valid(duel) and phase=="training": duel.resolve()
+		projectiles.advance(delta)
+		if is_instance_valid(duel): duel.resolve()
+		elif settling and projectiles.live_count()==0: finish_round(settlement_reason)
 		if phase == "training":
 			player.update_reload(weapon.reload_left_ms,float(weapon.get_data().reload_ms),weapon.reload_kind,weapon.reload_serial)
 			_update_hud()
 
 func _on_fired() -> void:
 	shots += 1
+	var origin: Vector3=player.view.model.find_child("Muzzle",true,false).global_position
+	var eye: Vector3=player.camera.global_position
+	var center: Vector3=-player.camera.global_basis.z
+	# Camera query locates the crosshair's aim point; it never inflicts damage.
+	var aim_query:=PhysicsRayQueryParameters3D.create(eye,eye+center*100.0,3)
+	aim_query.collide_with_areas=true
+	var aim_hit:=get_world_3d().direct_space_state.intersect_ray(aim_query)
+	var aim_point: Vector3=aim_hit.position if not aim_hit.is_empty() else eye+center*100.0
+	var muzzle_guard:=PhysicsRayQueryParameters3D.create(eye,origin,3)
+	muzzle_guard.collide_with_areas=true
+	var obstruction:=get_world_3d().direct_space_state.intersect_ray(muzzle_guard)
+	if not obstruction.is_empty(): origin=obstruction.position+(eye-origin).normalized()*0.011
+	center=(aim_point-origin).normalized()
+	var up:=Vector3.RIGHT if absf(center.dot(Vector3.UP))>0.99 else Vector3.UP
+	var direction:=ShotDirection.sample(Basis.looking_at(center,up),player.get_speed_ratio(),shot_rng,player.is_on_floor())
+	projectiles.spawn(origin,direction,"player")
+	shot_fired.emit(origin,direction)
 	player.play_shot()
 	shot_sound.stream = sounds[weapon.current_weapon]
 	shot_sound.play()
-	var origin: Vector3 = player.camera.global_position
-	var direction := ShotDirection.sample(player.camera.global_basis, player.get_speed_ratio(), shot_rng)
-	var endpoint: Vector3 = origin + direction * 100.0
-	var query := PhysicsRayQueryParameters3D.create(origin,endpoint,3)
-	query.collide_with_areas = true
-	query.exclude = [player.get_rid()]
-	var result := get_world_3d().direct_space_state.intersect_ray(query)
+	score_changed.emit()
+
+func _on_projectile_impact(origin: Vector3,direction: Vector3,result: Dictionary,owner_id: String) -> void:
+	if phase!="training": return
+	if owner_id=="bot":
+		if is_instance_valid(duel): duel.receive_hit(result)
+		return
 	if not result.is_empty() and result.collider.has_meta("target"):
 		var target: Node3D = result.collider.get_meta("target")
 		var headshot: bool = result.collider.get_meta("headshot",false)
@@ -308,7 +362,7 @@ func resume_game() -> void:
 	else: ui.hide_overlay()
 
 func _notification(what: int) -> void:
-	for flag in ["--assessment-checks","--assessment-demo","--assessment-benchmark"]:
+	for flag in ["--radar-checks","--projectile-checks","--projectile-demo","--projectile-benchmark","--assessment-checks","--assessment-demo","--assessment-benchmark"]:
 		if flag in OS.get_cmdline_user_args(): return
 	if is_instance_valid(player) and player.remote_controlled: return
 	for flag in ["--smoke-test","--showcase","--benchmark","--previews","--spread-demo","--control-smoke","--control-fixture","--input-checks","--viewmodel-checks","--reload-showcase","--viewmodel-benchmark"]:
@@ -318,7 +372,7 @@ func _notification(what: int) -> void:
 
 func _update_hud() -> void:
 	ui.update_status({"remaining":remaining,"mag":weapon.mag,"reserve":weapon.reserve,
-		"ready":weapon.fire_error().is_empty(),"accurate":ShotDirection.is_accurate(player.get_speed_ratio()),"reloading":weapon.is_reloading()})
+		"ready":weapon.fire_error().is_empty(),"accurate":ShotDirection.is_accurate(player.get_speed_ratio(),player.is_on_floor()),"reloading":weapon.is_reloading(),"settling":settling})
 
 func _setup_audio() -> void:
 	shot_sound = AudioStreamPlayer.new()

@@ -28,16 +28,18 @@ func capture(label_text: String) -> void:
 	if game.ui.transition != null and game.ui.transition.is_running():
 		await game.ui.transition.finished
 	await RenderingServer.frame_post_draw
-	var screenshot: Image = get_viewport().get_texture().get_image()
+	var screenshot: Image = get_window().get_texture().get_image()
 	var error: Error = screenshot.save_png(capture_dir.path_join(label_text + ".png"))
 	check(error == OK, "save " + label_text + " screenshot")
 
 
 func shoot_at(target: Node3D, area: String) -> void:
 	game.resume_game()
+	var moving_before:=target.is_physics_processing()
+	target.set_physics_process(false)
 	game.weapon.advance_ms(float(game.weapon.get_data().interval_ms))
 	game.player.camera.look_at(target.get_node(area).global_position, Vector3.UP)
-	await frames()
+	await frames(12)
 	if DisplayServer.get_name() == "headless":
 		game.pending_shots = 1
 	else:
@@ -50,6 +52,11 @@ func shoot_at(target: Node3D, area: String) -> void:
 		click.pressed = false
 		Input.parse_input_event(click)
 	await frames()
+	var guard:=0
+	while game.projectiles.live_count()>0 and guard<600:
+		await frames(1)
+		guard+=1
+	target.set_physics_process(moving_before)
 
 
 func run(controller: Node3D) -> void:

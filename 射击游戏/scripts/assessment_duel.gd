@@ -7,7 +7,7 @@ var regions: Array[Area3D]=[]
 
 func initialize(controller: Node3D) -> void:
 	game=controller
-	game.player.collision_mask=1|8
+	game.player.collision_mask=1|8|64
 	for head in [false,true]:
 		var area:=Area3D.new()
 		area.collision_layer=16
@@ -41,34 +41,38 @@ func initialize(controller: Node3D) -> void:
 func _exit_tree() -> void:
 	for region in regions:
 		if is_instance_valid(region): region.free()
-	if is_instance_valid(game) and is_instance_valid(game.player): game.player.collision_mask=1
+	if is_instance_valid(game) and is_instance_valid(game.player): game.player.collision_mask=1|8|64
 
 func step(delta: float) -> void:
-	bot.active=game.phase=="training" and player_alive
+	bot.active=game.phase=="training" and bot.target.alive
 	bot.step(delta)
 
-func resolve() -> void:
-	# Bot's ray was evaluated before player damage; both emitted rays count.
-	if bot.shot_pending:
-		var hit: Dictionary=bot.shot_collision
-		if not hit.is_empty() and hit.collider.has_meta("player_region") and hit.collider.get_meta("headshot",false): player_alive=false
-		bot.shot_pending=false
-	var reason:=outcome(player_alive,bot.target.alive,game.weapon.mag+game.weapon.reserve,game.remaining)
-	if not reason.is_empty(): game.finish_round(reason)
+func receive_hit(hit: Dictionary) -> void:
+	if not player_alive or hit.is_empty(): return
+	if hit.collider.has_meta("player_region") and hit.collider.get_meta("headshot",false):
+		player_alive=false
+		game.player.active=false
+		game.player.velocity=Vector3.ZERO
+		game.player.collision_layer=0
+		for region in regions: region.collision_layer=0
 
-static func outcome(player_lives: bool,bot_lives: bool,ammo: int,seconds: float) -> String:
-	if not player_lives and not bot_lives: return "平局 · 双方同时被击倒"
+func resolve() -> void:
+	if not bot.target.alive: bot.collision_layer=0
+	var reason:=outcome(player_alive,bot.target.alive,game.weapon.mag+game.weapon.reserve)
+	if not reason.is_empty(): game.begin_settlement(reason)
+	if game.settling and game.projectiles.live_count()==0: game.finish_round(reason)
+
+static func outcome(player_lives: bool,bot_lives: bool,ammo: int,_seconds: float=-1.0) -> String:
+	if not player_lives and not bot_lives: return "平局 · 双方被击倒"
 	if not bot_lives: return "获胜 · 对手已被击倒"
 	if not player_lives: return "失败 · 被对手爆头"
 	if ammo==0: return "失败 · 弹药耗尽"
-	if seconds<=0: return "未分胜负 · 时间到"
 	return ""
 
 func stop() -> void:
 	bot.active=false
 	bot.weapon.active=false
 	bot.target.active=false
-	bot.shot_pending=false
 	bot.velocity=Vector3.ZERO
 	bot.sound.stop()
 	bot.flash.hide()

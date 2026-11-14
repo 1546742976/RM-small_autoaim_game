@@ -53,3 +53,8 @@ CC BY 署名：**“Desert Eagle” by ELIZION, licensed under CC BY 4.0. “fps
 ## 箱阵考核资产
 
 场地网格、道路算法、箱堆几何和对战代码为本项目原创，MIT。箱体复用上述 ambientCG 木材贴图，地面复用石板贴图，未新增外部付费素材。`bot_ak47.glb` 从本工程既有 `normalized_ak47.glb` 复制，继承 AK 来源与许可；运行时隐藏其中旧第一人称手臂，仅用于第三人称枪械。人物复用 CC0 的 trainee.glb，运行时增加持枪骨骼约束和弹匣动作，未改动原训练地图人物文件。
+
+
+## 实体子弹、高台与雷达（2026-11-15）
+
+球形弹体、短尾迹、高台／楼梯几何、区域雷达及粗化算法由本项目制作，MIT。高台复用现有 ambientCG CC0 木材贴图；雷达使用 Godot 原生二维绘制，无新增纹理、字体、网络库或外部素材费用。代码入口分别为 projectile_system.gd、assessment_yard.gd、radar_snapshot.gd、assessment_radar.gd 与 game_window.gd。

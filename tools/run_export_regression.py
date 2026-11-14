@@ -27,7 +27,7 @@ for size in ["1280x720", "960x540"]:
         command = [str(GAME), "--resolution", size, "--position", "40,40", "--log-file", str(log), "--", mode, f"--capture-dir={folder}"]
         with (folder / "stdout.log").open("w", encoding="utf-8") as output:
             result = subprocess.run(command, cwd=ROOT, env=env, stdout=output, stderr=subprocess.STDOUT,
-                                    timeout=240, creationflags=subprocess.CREATE_NO_WINDOW)
+                                    timeout=600, creationflags=subprocess.CREATE_NO_WINDOW)
         text = log.read_text(encoding="utf-8", errors="replace")
         assert result.returncode == 0, f"{name} {size}: exit {result.returncode}"
         assert not re.search(r"SCRIPT ERROR:|^ERROR:|SMOKE FAIL|INPUT FAIL|CONTROL FAIL|^FAIL", text, re.M), folder
