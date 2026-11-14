@@ -1,4 +1,10 @@
 extends CharacterBody3D
+const Profile=preload("res://scripts/bot_profile.gd")
+const Tactics=preload("res://scripts/bot_tactics.gd")
+var tactics: RefCounted
+var navigation_only := false
+var navigation_destination := Vector3.ZERO
+var shot_log: Array[Dictionary]=[]
 const Target=preload("res://scripts/training_target.gd")
 const Weapon=preload("res://scripts/weapon_controller.gd")
 var game: Node3D
@@ -94,6 +100,8 @@ func _ready() -> void:
 	footsteps.configure(self,game.player.camera,false)
 	rng.seed=layout.seed_value^185723
 	_new_patrol()
+	tactics=Tactics.new()
+	tactics.initialize(self)
 
 func _new_patrol() -> void:
 	patrol.clear()
@@ -117,71 +125,76 @@ func can_see(point: Vector3) -> bool:
 	var hit:=get_world_3d().direct_space_state.intersect_ray(query)
 	return not hit.is_empty() and hit.collider.has_meta("player_region")
 
+func navigate(destination: Vector3,delta: float) -> Vector3:
+	if repath<=0:
+		route=game.arena.map_root.navigation_path(global_position,destination)
+		waypoint=1 if route.size()>1 else 0
+		repath=0.25
+	while waypoint<route.size():
+		var offset:=route[waypoint]-global_position
+		offset.y=0
+		if offset.length()<0.18: waypoint+=1
+		else: return offset.normalized()*minf(Profile.SPEED,offset.length()/delta)
+	return Vector3.ZERO
+
 func step(delta: float) -> void:
-	if not active or not target.alive:
-		footsteps.reset()
+	if not active or not target.alive or get_tree().paused:
+		if not active or not target.alive: footsteps.reset()
 		return
 	target.active=true
 	weapon.active=not game.settling
-	# NPC reserve is replenished, but the real magazine and reload clock are used.
 	weapon.reserve=50
 	weapon.advance_ms(delta*1000)
 	clock+=delta
 	burst_wait=maxf(0,burst_wait-delta)
 	repath-=delta
-	visible_player=can_see(game.player.global_position+Vector3(0,1.65,0)) or can_see(game.player.global_position+Vector3(0,1.1,0))
+	last_seen=game.player.global_position
+	var head:=last_seen+Vector3.UP*1.65
+	var to_player:=last_seen-global_position
+	var desired_yaw:=atan2(-to_player.x,-to_player.z)
+	rotation.y=rotate_toward(rotation.y,desired_yaw,Profile.BODY_TURN*delta)
+	visible_player=can_see(head)
 	if visible_player:
-		last_seen=game.player.global_position
-		memory=2.0
+		tactics.lost=0
 		reaction+=delta
 	else:
-		reaction=0
-		if memory>0 and memory<=delta: _new_patrol()
-		memory=maxf(0,memory-delta)
+		tactics.lost+=delta
+		if tactics.lost>Profile.LOST_SIGHT: reaction=0
 		burst_left=0
-	var desired:=Vector3.ZERO
-	if visible_player:
-		goal=last_seen
-		var desired_yaw:=atan2(-(last_seen.x-global_position.x),-(last_seen.z-global_position.z))
-		rotation.y=rotate_toward(rotation.y,desired_yaw,PI*delta)
-	else:
-		if memory>0: goal=last_seen
-		elif global_position.distance_to(goal)<0.5:
-			patrol_index+=1
-			if patrol_index>=patrol.size(): _new_patrol()
-			else: goal=patrol[patrol_index]
-			repath=0
-		if repath<=0:
-			route=game.arena.map_root.navigation_path(global_position,goal)
-			waypoint=1 if route.size()>1 else 0
-			repath=0.35
-		if waypoint<route.size():
-			var offset:=route[waypoint]-global_position
-			offset.y=0
-			if offset.length()<0.18: waypoint+=1
-			else: desired=offset.normalized()*minf(3.5,offset.length()/delta)
-		if desired.length()>0.1: rotation.y=rotate_toward(rotation.y,atan2(-desired.x,-desired.z),PI*delta)
-	var horizontal:=Vector3(velocity.x,0,velocity.z).move_toward(desired,12*delta if desired.is_zero_approx() else 30*delta)
-	velocity=Vector3(horizontal.x,-0.1 if is_on_floor() else velocity.y-20*delta,horizontal.z)
+	var desired: Vector3=navigate(navigation_destination,delta) if navigation_only else tactics.desired(delta,visible_player)
+	if navigation_only and desired.length()>0.1:
+		rotation.y=rotate_toward(rotation.y,atan2(-desired.x,-desired.z),Profile.BODY_TURN*delta)
+	var horizontal:=Vector3(velocity.x,0,velocity.z)
+	var rate:=Profile.BRAKE if desired.is_zero_approx() or horizontal.dot(desired)<0 else 30.0
+	horizontal=horizontal.move_toward(desired,rate*delta)
+	velocity.x=horizontal.x
+	velocity.z=horizontal.z
+	if is_on_floor():
+		if velocity.y<=0: velocity.y=-0.1
+	else: velocity.y-=Profile.GRAVITY*delta
 	move_and_slide()
 	footsteps.advance(delta,true)
-	if visible_player:
-		var muzzle: Vector3=gun.global_transform*Vector3(0,0.1975,-0.8215)
-		var desired_aim: Vector3=(last_seen+Vector3(0,1.65,0)-muzzle).normalized()
-		var amount:=minf(1,PI*delta/maxf(0.0001,aim_direction.angle_to(desired_aim)))
-		aim_direction=aim_direction.slerp(desired_aim,amount).normalized()
-		if not game.settling and is_on_floor() and reaction>=0.45 and horizontal.length()/3.5<0.34 and aim_direction.angle_to(desired_aim)<deg_to_rad(0.6):
-			if burst_left==0 and burst_wait<=0 and not weapon.is_reloading():
-				burst_left=3
-				var angle:=rng.randf()*TAU
-				aim_offset=Vector2(cos(angle),sin(angle))*tan(deg_to_rad(1.2))*sqrt(rng.randf())
-			if burst_left>0 and weapon.fire_error().is_empty():
-				weapon.try_fire()
-				burst_left-=1
-				if burst_left==0: burst_wait=0.6
-	else: aim_direction=-global_basis.z
-	# Skinning and arm constraints need only 30 Hz. Child hit regions retain
-	# the sampled skeleton pose and inherit continuous body movement.
+	var muzzle: Vector3=gun.global_transform*Vector3(0,0.1975,-0.8215)
+	var floor_head:=head.y
+	if not game.player.is_on_floor():
+		var floor_hit:=get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(last_seen,last_seen-Vector3.UP*20,1))
+		if not floor_hit.is_empty(): floor_head=floor_hit.position.y+1.65
+	var prediction: Vector3=Profile.intercept(muzzle,head,game.player.get_real_velocity(),not game.player.is_on_floor(),floor_head)
+	var desired_aim: Vector3=(prediction-muzzle).normalized()
+	aim_direction=aim_direction.slerp(desired_aim,minf(1,Profile.AIM_TURN*delta/maxf(0.0001,aim_direction.angle_to(desired_aim)))).normalized()
+	var real:=get_real_velocity()
+	var stopped:=Vector2(real.x,real.z).length()/Profile.SPEED<0.34
+	var clear: bool=tactics.clear_line(global_position+Vector3.UP*1.65,muzzle) and tactics.clear_line(muzzle,head) and tactics.clear_line(muzzle,prediction)
+	if not navigation_only and not game.settling and visible_player and clear and is_on_floor() and stopped and desired.length()<0.1 and reaction>=Profile.REACTION and aim_direction.angle_to(desired_aim)<deg_to_rad(0.4):
+		if burst_left==0 and burst_wait<=0 and not weapon.is_reloading(): burst_left=4 if to_player.length()<=12 else 3
+		if burst_left>0 and weapon.fire_error().is_empty():
+			var angle:=rng.randf()*TAU
+			aim_offset=Vector2(cos(angle),sin(angle))*tan(deg_to_rad(Profile.ERROR))*sqrt(rng.randf())
+			weapon.try_fire()
+			burst_left-=1
+			if burst_left==0:
+				burst_wait=Profile.BURST_PAUSE
+				tactics.bursts+=1
 	pose_elapsed+=delta
 	if pose_elapsed>=1.0/30.0:
 		pose(pose_elapsed)
@@ -189,6 +202,7 @@ func step(delta: float) -> void:
 
 func _fire() -> void:
 	shot_count+=1
+	if "--bot-checks" in OS.get_cmdline_user_args(): shot_log.append({"time":clock,"position":global_position,"grounded":is_on_floor(),"reaction":reaction})
 	var origin: Vector3=gun.global_transform*Vector3(0,0.1975,-0.8215)
 	var eye:=global_position+Vector3(0,1.65,0)
 	var guard:=PhysicsRayQueryParameters3D.create(eye,origin,17)

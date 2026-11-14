@@ -48,6 +48,9 @@ func fly(seconds:=4.1) -> void:
 		elif game.settling and game.projectiles.live_count()==0: game.finish_round(game.settlement_reason)
 
 func run(controller: Node3D) -> void:
+	if "--fast-checks" in OS.get_cmdline_user_args():
+		Engine.physics_ticks_per_second=960
+		Engine.time_scale=8
 	process_mode=Node.PROCESS_MODE_ALWAYS
 	game=controller
 	game.set_process_input(false)
@@ -296,25 +299,31 @@ func yard_test() -> void:
 	game._physics_process(181)
 	check(game.phase=="training" and game.remaining==-1 and game.elapsed>=181,"assessment has no deadline")
 	check(not game.ui.clock_label.visible,"assessment timer hidden")
+	await prepare("assessment_yard")
 	var bot=game.duel.bot
-	bot.position=Vector3(0,0.02,31)
-	game.player.reset_position(Vector3(0,0.02,35))
+	bot.position=Vector3(-8,0.02,33.5)
+	bot.rotation.y=-PI/2
+	game.player.reset_position(Vector3(8,0.02,33.5))
 	bot.pose(0)
 	await frames()
 	bot.active=true
-	bot.aim_direction=Vector3.BACK
-	for k in 40: bot.step(1.0/120)
+	bot.aim_direction=Vector3.RIGHT
+	for k in 10:
+		await get_tree().physics_frame
+		bot.step(1.0/120)
 	check(bot.shot_count==0,"bot retains reaction delay")
-	for k in 40: bot.step(1.0/120)
+	for k in 80:
+		await get_tree().physics_frame
+		bot.step(1.0/120)
 	check(bot.shot_count>0 and game.projectiles.live_count()>0,"bot creates physical projectiles")
 	game.projectiles.clear()
-	game.projectiles.spawn(game.player.position+Vector3(0,1.0,-2),Vector3.BACK,"bot")
+	game.projectiles.spawn(game.player.position+Vector3(-2,1.0,0),Vector3.RIGHT,"bot")
 	fly(0.15)
 	check(game.duel.player_alive and impacts[-1].hit.collider.get_meta("headshot")==false,"player body blocks without damage")
 	var player_head: Vector3=game.player.position+Vector3(0,1.65,0)
 	var bot_head: Vector3=bot.target.get_node("Head").global_position
 	game.projectiles.spawn(bot_head+Vector3(0,0,2),Vector3.FORWARD,"player")
-	game.projectiles.spawn(player_head+Vector3(0,0,-3),Vector3.BACK,"bot")
+	game.projectiles.spawn(player_head+Vector3(3,0,0),Vector3.LEFT,"bot")
 	fly(0.09)
 	check(game.settling and game.phase=="training","first death waits for opposing projectile")
 	fly(0.1)
@@ -353,8 +362,8 @@ func walk_player(path: PackedVector3Array,label_text: String) -> void:
 
 func walk_bot(destination: Vector3,label_text: String) -> void:
 	var bot=game.duel.bot
-	bot.last_seen=destination
-	bot.memory=100
+	bot.navigation_only=true
+	bot.navigation_destination=destination
 	bot.repath=0
 	var guard:=0
 	while bot.position.distance_to(destination)>0.3 and guard<1440:
@@ -362,6 +371,7 @@ func walk_bot(destination: Vector3,label_text: String) -> void:
 		bot.step(1.0/120)
 		guard+=1
 	check(guard<1440,label_text+" position %s"%bot.position)
+	bot.navigation_only=false
 
 func overview(label_text: String) -> void:
 	if DisplayServer.get_name()=="headless": return

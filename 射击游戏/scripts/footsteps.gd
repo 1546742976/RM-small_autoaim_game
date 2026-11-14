@@ -81,6 +81,10 @@ func advance(delta: float, enabled: bool) -> void:
 	grounded=on_floor
 
 func _exit_tree() -> void:
+	if is_instance_valid(voice):
+		voice.stop()
+		voice.stream=null
+		voice.bus="Master"
 	if not bus_name.is_empty():
 		var index:=AudioServer.get_bus_index(bus_name)
 		if index>0: AudioServer.remove_bus(index)
