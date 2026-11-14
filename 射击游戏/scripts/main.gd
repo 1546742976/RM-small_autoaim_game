@@ -21,6 +21,8 @@ var hits := 0
 var kills := 0
 var headshots := 0
 var pending_shots := 0
+var round_id := 0
+var control_bridge: Node
 var shot_rng := RandomNumberGenerator.new()
 var shot_sound: AudioStreamPlayer
 var hit_sound: AudioStreamPlayer
@@ -54,10 +56,24 @@ func _ready() -> void:
 	ui.quit_requested.connect(func(): get_tree().quit())
 	_setup_audio()
 	show_menu()
+	if "--control" in OS.get_cmdline_user_args():
+		control_bridge = load("res://scripts/control_bridge.gd").new()
+		add_child(control_bridge)
+		if not control_bridge.configure(self):
+			get_tree().quit(1)
+			return
 	if "--smoke-test" in OS.get_cmdline_user_args():
 		var smoke = load("res://tests/game_smoke.gd").new()
 		add_child(smoke)
 		smoke.call_deferred("run",self)
+	elif "--control-smoke" in OS.get_cmdline_user_args():
+		var checks = load("res://tests/control_checks.gd").new()
+		add_child(checks)
+		checks.call_deferred("run",self)
+	elif "--control-fixture" in OS.get_cmdline_user_args():
+		var fixture = load("res://tests/control_fixture.gd").new()
+		add_child(fixture)
+		fixture.call_deferred("run",self)
 	elif "--spread-demo" in OS.get_cmdline_user_args():
 		var demo = load("res://tests/spread_demo.gd").new()
 		add_child(demo)
@@ -81,6 +97,7 @@ func _reset_player() -> void:
 	player.reset_position(spawn.origin,spawn.basis.get_euler().y)
 
 func _stop_play() -> void:
+	if is_instance_valid(control_bridge): control_bridge.invalidate("state_changed")
 	get_tree().paused = false
 	pending_shots = 0
 	player.active = false
@@ -112,6 +129,7 @@ func _select_loadout(map_id: String, weapon_id: String) -> void:
 func start_round() -> void:
 	if phase != "setup" and phase != "results": return
 	_stop_play()
+	round_id += 1
 	arena.load_map(selected_map)
 	arena.reset_targets()
 	weapon.reset(selected_weapon)
@@ -166,6 +184,7 @@ func _input(event: InputEvent) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if get_tree().paused or phase != "training" or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED: return
+	if player.remote_controlled: return
 	if event.is_action_pressed("reload"): weapon.start_reload()
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var error: String = weapon.fire_error()
@@ -182,6 +201,7 @@ func _physics_process(delta: float) -> void:
 		if remaining <= 0:
 			finish_round("时间到")
 			return
+		if is_instance_valid(control_bridge): control_bridge.apply_pending()
 		var attempts := pending_shots
 		pending_shots = 0
 		for i in attempts:
@@ -218,12 +238,14 @@ func _on_fired() -> void:
 
 func pause_game() -> void:
 	if phase != "countdown" and phase != "training": return
+	if is_instance_valid(control_bridge): control_bridge.invalidate("paused")
 	pending_shots = 0
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	ui.show_pause()
 
 func resume_game() -> void:
+	if get_tree().paused and is_instance_valid(control_bridge): control_bridge.invalidate("resumed")
 	get_tree().paused = false
 	if phase != "countdown" and phase != "training": return
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -231,7 +253,8 @@ func resume_game() -> void:
 	else: ui.hide_overlay()
 
 func _notification(what: int) -> void:
-	for flag in ["--smoke-test","--showcase","--benchmark","--previews","--spread-demo"]:
+	if is_instance_valid(player) and player.remote_controlled: return
+	for flag in ["--smoke-test","--showcase","--benchmark","--previews","--spread-demo","--control-smoke","--control-fixture"]:
 		if flag in OS.get_cmdline_user_args(): return
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_instance_valid(ui) and not get_tree().paused:
 		pause_game()

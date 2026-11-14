@@ -40,3 +40,9 @@ CC BY 署名：**“Desert Eagle” by ELIZION, licensed under CC BY 4.0. “fps
 来源许可：https://docs.ambientcg.com/license/ 。`assets/licenses/town-materials.json` 保存每个原始 ZIP 的下载链接、SHA256、所用贴图名及改动，CC0 正文随包提供。地图贴图共 12 张，均为 2048×2048；这些非金属表面金属度为 0。
 
 `assets/ui/` 的两张地图图和三张透明背景枪械图均使用本项目的 Godot 场景离线渲染；枪械预览继承对应模型的署名要求。UI 使用 Godot 原生控件和 Noto Sans SC 字体，不引入网页运行时。
+
+## C++ 控制接口依赖
+
+- nlohmann/json **3.11.3**，作者 Niels Lohmann，MIT；[官方源码](https://github.com/nlohmann/json/tree/v3.11.3)。未修改单头文件，随 `sdk/cpp/third_party/nlohmann/` 分发源码及 `LICENSE.MIT`。`json.hpp` SHA256 为 `9bea4c8066ef4a1c206b2be5a36302f8926f7fdc6087af5d20b417d0cf103ea6`。
+- OpenCV **4.x**，OpenCV 团队，Apache-2.0；[官方许可](https://github.com/opencv/opencv/blob/4.10.0/LICENSE)。仅由 C++ 图像示例使用，Ubuntu 通过系统软件包提供；Godot 游戏不依赖 OpenCV。本地验证使用的具体构建版本记录于验证报告，不把外部系统依赖打进游戏 EXE。
+- C++ SDK、协议实现及示例为本项目代码，适用根目录 MIT 许可证。本轮不新增收费服务或付费素材。

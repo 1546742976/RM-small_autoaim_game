@@ -1,5 +1,5 @@
 extends CharacterBody3D
-## Movement and view feedback. Shot direction always remains the camera center.
+## Movement and view feedback. The hit module owns movement-dependent spread.
 
 const MAX_SPEED := 6.0
 const ACCELERATION := 30.0
@@ -8,6 +8,7 @@ const COUNTER_ACCELERATION := 48.0
 const SENSITIVITY := 0.0022
 
 var active: bool = false
+var remote_controlled := false
 var camera: Camera3D
 var weapon_root: Node3D
 var view: Node3D
@@ -44,12 +45,20 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not active or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	if event is InputEventMouseMotion:
+		if remote_controlled: return
 		for flag in ["--smoke-test", "--showcase", "--benchmark", "--spread-demo"]:
 			if flag in OS.get_cmdline_user_args() and not event.has_meta("smoke_motion"):
 				return
 		rotate_y(-event.relative.x * SENSITIVITY)
 		_pitch = clampf(_pitch - event.relative.y * SENSITIVITY, -1.42, 1.42)
 		camera.rotation.x = _pitch
+
+
+func apply_look_delta(yaw_degrees: float, pitch_degrees: float) -> void:
+	rotate_y(-deg_to_rad(yaw_degrees))
+	rotation.y = wrapf(rotation.y, -PI, PI)
+	_pitch = clampf(_pitch + deg_to_rad(pitch_degrees), -1.42, 1.42)
+	camera.rotation.x = _pitch
 
 
 func _physics_process(delta: float) -> void:

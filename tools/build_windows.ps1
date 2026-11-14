@@ -35,7 +35,10 @@ try {
     Invoke-Engine @('--headless', '--path', $projectPath, '--script', 'res://tests/test_rules.gd', '--log-file', "$artifactPath/rules.log")
     Invoke-Engine @('--headless', '--path', $projectPath, '--log-file', "$artifactPath/game-smoke-headless.log", '--', '--smoke-test')
     Invoke-Engine @('--headless', '--path', $projectPath, '--export-release', 'Windows Desktop', '--log-file', "$artifactPath/export.log")
-    Copy-Item -LiteralPath (Join-Path $repoRoot 'README.md'), (Join-Path $repoRoot 'ASSET_MANIFEST.md'), (Join-Path $repoRoot 'VALIDATION.md'), (Join-Path $repoRoot 'UI_DESIGN.md'), (Join-Path $repoRoot 'LICENSE') -Destination $releasePath -Force
+    Copy-Item -LiteralPath (Join-Path $repoRoot 'README.md'), (Join-Path $repoRoot 'ASSET_MANIFEST.md'), (Join-Path $repoRoot 'VALIDATION.md'), (Join-Path $repoRoot 'UI_DESIGN.md'), (Join-Path $repoRoot 'CONTROL_API.md'), (Join-Path $repoRoot 'LICENSE') -Destination $releasePath -Force
+    $sdkPath = Join-Path $releasePath 'sdk'
+    New-Item -ItemType Directory -Force -Path $sdkPath | Out-Null
+    Copy-Item -LiteralPath (Join-Path $repoRoot 'sdk\cpp') -Destination $sdkPath -Recurse -Force
     $licensesPath = Join-Path $releasePath 'licenses'
     New-Item -ItemType Directory -Force -Path $licensesPath | Out-Null
     Copy-Item -LiteralPath "$projectPath/assets/fonts/OFL.txt", "$projectPath/assets/fonts/NOTICE.txt" -Destination $licensesPath -Force

@@ -1,6 +1,6 @@
 # 验证记录 · 2026-11-14
 
-对应“移动射击与 20% 随机散布”版本。最终 EXE SHA256：`19e55ac4a1809f0c7c581ec9375494e8645945a58da2ba4e5e4d86f251249b8f`。
+对应“局域网 C++ 视觉控制接口”版本。最终 EXE SHA256：`f4dba688ed90d694a63c119e12e9c393cb48e8e9313e645f2ed1ce94d6aaf82a`。
 
 ## 规则与独立运行
 
@@ -8,10 +8,35 @@
 |---|---|---|
 | 规则 | 319 项通过 | `artifacts/rules.log` |
 | 无界面真实场景 | 827 项通过，0 失败 | `artifacts/game-smoke-headless.log` |
-| Windows EXE，1280×720 | 860 项通过，0 失败 | `artifacts/spread-export-1280.log` |
-| Windows EXE，960×540 | 860 项通过，0 失败 | `artifacts/spread-export-960.log` |
+| Windows EXE，1280×720 | 860 项通过，0 失败 | `artifacts/control-export-1280.log` |
+| Windows EXE，960×540 | 860 项通过，0 失败 | `artifacts/control-export-960.log` |
+| TCP 接口，1280×720 | 149 项通过，0 失败 | `artifacts/control-network-1280.log` |
+| TCP 接口，960×540 | 149 项通过，0 失败 | `artifacts/control-network-960.log` |
 
-导入、规则、场景和导出均通过，最终日志没有脚本或引擎错误。同份日志随便携包放在 `verification/`。本轮没有重新测量实时 FPS；录像采用固定步长，不用录像帧率代替性能结果。
+导入、规则、场景、TCP 和导出均通过，最终日志没有脚本或引擎错误。同份日志随便携包放在 `verification/`。录像采用固定步长；实时性能使用下面的独立测量。
+
+## C++ 接口验证
+
+最终 EXE 通过真实 TCP 连接验证：错误口令、重复接管、分包、粘包、重复请求编号、过大消息、慢客户端、两秒超时、断连和重连。检查人工瞄准／开火／换弹被接管、WASD 可用、失焦继续、暂停优先，以及旧回合、旧会话和暂停画面不能继续控制。两图 × 三枪验证控制指令的速度边界、头身命中和最后一发结算，开火仍通过原武器及射线流程。
+
+实际 JPEG 解码检查两种尺寸、RGB 颜色和左上原点；相机内参与 Godot 渲染投影逐项比较。返回数据检查不包含目标坐标、位置、可见性或头部信息。图像采集间隔检查不小于 33,334 微秒，慢客户端只产生一个被请求的画面。
+
+C++17 客户端与 OpenCV 模板在 Windows / MinGW GCC 16.1.0 上实际编译，使用本地构建的 OpenCV 4.10.0。CTest 验证中心、角度符号及 45 个不同俯仰／像素组合的像素转角度。C++ 联调真实读取画面，向右 5°、向上 3°、单发和换弹均成功；独立 OpenCV 模板实际解码 120 帧 BGR 图像，默认检测函数为空。
+
+**尚未完成实体 Ubuntu NUC 跨机验证。** 本机 WSL 中列有 Ubuntu 22.04，但启动报 `HCS_E_HYPERV_NOT_INSTALLED`，没有把它写成 Linux 构建通过。已提供 Ubuntu 22.04／24.04 的 POSIX 客户端、CMake 和依赖步骤；Ubuntu 编译、实体局域网连通性和跨机延迟仍待在控制端执行。本轮实际通信结果为 Windows 本机回环，不等同于实体 NUC 验收。
+
+## 本机性能与取图耗时
+
+GPU：NVIDIA GeForce RTX 5070 Laptop GPU；Windows，Forward+ / D3D12，1280×720。四组顺序运行，每组进入训练并预热 240 帧后测量至少 30 秒；六个靶子运行，玩家持续横向走动。传图组的 C++ 客户端额外执行一次转向、射击和换弹。游戏指标来自预热后的 30 秒；客户端取图指标覆盖其完整 40 秒循环，包含倒数和预热。
+
+| 地图 | 模式 | 游戏测量时长 | 游戏平均 FPS | P95 帧间隔 | 客户端图像 FPS | 平均 / P95 取图耗时 |
+|---|---|---:|---:|---:|---:|---:|
+| 训练馆 | 仅连接保活 | 30.00 s | 60.00 | 17.13 ms | 0.00 | 0.00 / 0.00 ms |
+| 训练馆 | 持续 JPEG 取图 | 30.00 s | 60.00 | 41.26 ms | 15.00 | 66.59 / 77.16 ms |
+| 旧镇街区 | 仅连接保活 | 30.00 s | 60.00 | 17.09 ms | 0.00 | 0.00 / 0.00 ms |
+| 旧镇街区 | 持续 JPEG 取图 | 30.00 s | 60.03 | 44.13 ms | 15.01 | 66.60 / 67.08 ms |
+
+“仅连接保活”不请求图像，表内图像 FPS／取图耗时为 0。持续传图时平均游戏帧率约 60，但 P95 帧间隔明显增大，存在周期性帧间波动；当前取图实测约 15 FPS，30 FPS 是采集上限，不是吞吐保证。取图耗时包括请求、等待新渲染帧、JPEG 编码及传输，不是纯网络 RTT，也不包含目标识别；这些数字不代表其他机器或网络。原始数据见 `verification/control-perf-*/` 和 `media/control-performance.json`。
 
 ## 移动射击与随机散布
 
@@ -39,4 +64,4 @@
 
 `media/moving-spread.png` 与 `media/stopped-precision.png` 为演示截图；`media/ui-1280/`、`media/ui-960/` 为对应尺寸的菜单、说明、准备、倒数、暂停、结算与两图截图。已目视检查本轮说明页、HUD 和对比画面。
 
-交付更新的 Godot 源工程、Windows EXE、便携 ZIP、README、UI_DESIGN、素材／许可证清单及本记录。素材与许可证未改变，`licenses/` 保留作者署名及 CC BY、CC0、MIT、OFL、Godot 声明。
+交付更新的 Godot 源工程、Windows EXE、便携 ZIP、独立 C++ SDK 源码包、README、CONTROL_API、UI_DESIGN、素材／许可证清单及本记录。`licenses/` 保留原素材声明，SDK 包内提供 nlohmann/json 的 MIT 许可证；OpenCV 由控制端外部依赖提供。
