@@ -25,6 +25,8 @@ func frames(count: int = 2) -> void:
 func capture(label_text: String) -> void:
 	if capture_dir.is_empty() or DisplayServer.get_name() == "headless":
 		return
+	if game.ui.transition != null and game.ui.transition.is_running():
+		await game.ui.transition.finished
 	await RenderingServer.frame_post_draw
 	var screenshot: Image = get_viewport().get_texture().get_image()
 	var error: Error = screenshot.save_png(capture_dir.path_join(label_text + ".png"))
@@ -92,7 +94,7 @@ func run(controller: Node3D) -> void:
 	game.ui.weapon_buttons.ak47.pressed.emit()
 	game.ui.action_buttons.launch.pressed.emit()
 	check(game.phase == "countdown" and game.remaining == 3.0, "launch starts three-second countdown")
-	check(game.weapon.try_fire(0.0) == "not_training" and not game.weapon.start_reload(), "countdown blocks fire and reload")
+	check(game.weapon.try_fire() == "not_training" and not game.weapon.start_reload(), "countdown blocks fire and reload")
 	var countdown_position: Vector3 = game.player.position
 	Input.action_press("move_forward")
 	await frames(10)
@@ -180,15 +182,26 @@ func run(controller: Node3D) -> void:
 	await frames(180)
 	check(game.weapon.mag == 25 and game.weapon.reserve == 25 and not game.weapon.is_reloading(), "reload completes and conserves partial magazine")
 
-	# Input actions drive real CharacterBody movement and a failed click is not queued.
+	# Input actions drive real movement; moving shots now fire with spread.
 	game.player.reset_position()
 	Input.action_press("move_right")
 	await frames(32)
 	check(game.player.position.x > 0.2 and game.player.get_speed_ratio() > 0.34, "WASD action moves player above precision threshold")
 	var shots_before_moving: int = game.shots
-	game.pending_shots = 1
+	if DisplayServer.get_name() == "headless":
+		game.pending_shots = 1
+	else:
+		var moving_click := InputEventMouseButton.new()
+		moving_click.button_index = MOUSE_BUTTON_LEFT
+		moving_click.pressed = true
+		Input.parse_input_event(moving_click)
+		moving_click = moving_click.duplicate()
+		moving_click.pressed = false
+		Input.parse_input_event(moving_click)
+		Input.flush_buffered_events()
 	await frames()
-	check(game.shots == shots_before_moving and game.pending_shots == 0, "moving click rejected and consumed")
+	check(game.shots == shots_before_moving + 1 and game.pending_shots == 0, "moving shot fires exactly once")
+	check(not game.ui.crosshair.accurate, "moving reticle indicates spread")
 	Input.action_release("move_right")
 	var velocity_before_counter: float = absf(game.player.velocity.x)
 	Input.action_press("move_left")
@@ -197,7 +210,8 @@ func run(controller: Node3D) -> void:
 	Input.action_release("move_left")
 	await frames(90)
 	check(game.player.get_speed_ratio() < 0.34, "release eventually reaches precision threshold")
-	check(game.shots == shots_before_moving, "rejected click never fires later")
+	check(game.shots == shots_before_moving + 1, "single moving click never fires later")
+	check(game.ui.crosshair.accurate, "counter-strafe restores accurate reticle")
 
 	# Depletion must happen after synchronous hit/kill processing of the final shot.
 	game.player.reset_position()
@@ -225,6 +239,9 @@ func run(controller: Node3D) -> void:
 	check(game.accuracy() == 0.0 and game.headshot_rate() == 0.0, "empty round statistics are zero")
 	await check_models_and_regions()
 	await check_maps_and_loadouts()
+	var spread_checks = preload("res://tests/spread_checks.gd").new()
+	add_child(spread_checks)
+	await spread_checks.run(game,check)
 	Input.action_release("move_right")
 	Input.action_release("move_left")
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -300,7 +317,7 @@ func check_models_and_regions() -> void:
 		check(view.magazine.transform.is_equal_approx(view.magazine_home) and view.left_arm.visible and not view.reload_arms.visible, id + " final pose restored")
 		game.resume_game()
 		game.weapon.mag = 1
-		game.weapon.try_fire(0.0)
+		game.weapon.try_fire()
 		game.player.update_reload(game.weapon.reload_left_ms,duration)
 		check(game.weapon.is_reloading() and view.reload_progress >= 0.0, id + " auto reload uses same visual")
 		game.finish_round("test interruption")

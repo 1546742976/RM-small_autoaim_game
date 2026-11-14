@@ -64,23 +64,21 @@ func start_reload() -> bool:
 	return true
 
 
-func fire_error(speed_ratio: float) -> String:
+func fire_error() -> String:
 	if not active:
 		return "not_training"
 	if is_reloading():
 		return "reloading"
 	if mag <= 0:
 		return "mag_empty"
-	if speed_ratio >= Rules.PRECISION_THRESHOLD:
-		return "moving"
-	# Only compensate for accumulated floating point time error, never speed.
+	# Only compensate for accumulated floating point time error.
 	if time_ms - last_fire_ms + 0.000001 < float(get_data().interval_ms):
 		return "cooldown"
 	return ""
 
 
-func try_fire(speed_ratio: float) -> String:
-	var error: String = fire_error(speed_ratio)
+func try_fire() -> String:
+	var error: String = fire_error()
 	if not error.is_empty():
 		return error
 	mag -= 1

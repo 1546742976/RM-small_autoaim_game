@@ -44,7 +44,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not active or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	if event is InputEventMouseMotion:
-		for flag in ["--smoke-test", "--showcase", "--benchmark"]:
+		for flag in ["--smoke-test", "--showcase", "--benchmark", "--spread-demo"]:
 			if flag in OS.get_cmdline_user_args() and not event.has_meta("smoke_motion"):
 				return
 		rotate_y(-event.relative.x * SENSITIVITY)

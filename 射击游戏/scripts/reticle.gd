@@ -1,6 +1,7 @@
 extends Control
 ## Thin geometric reticle, independent from font glyph metrics and weapon aim.
 var can_fire := false
+var accurate := true
 var hit_left := 0.0
 var headshot := false
 var gap := 8.0
@@ -9,13 +10,14 @@ const AMBER := Color("d9ad66")
 
 func _process(delta: float) -> void:
 	if get_tree().paused: return
-	gap = move_toward(gap,3.0 if can_fire else 8.0,delta*55.0)
+	gap = move_toward(gap,3.0 if accurate else 8.0,delta*55.0)
 	hit_left = maxf(0,hit_left-delta)
 	queue_redraw()
 
 func _draw() -> void:
 	var center := size/2
-	var color := WHITE if can_fire else AMBER
+	var color := WHITE if accurate else AMBER
+	if not can_fire: color = color.darkened(0.45)
 	for direction: Vector2 in [Vector2.UP,Vector2.DOWN,Vector2.LEFT,Vector2.RIGHT]:
 		var a := center + direction*gap
 		var b := center + direction*(gap+5)

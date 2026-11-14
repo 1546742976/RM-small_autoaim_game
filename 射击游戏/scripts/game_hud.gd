@@ -299,7 +299,7 @@ func show_help() -> void:
 	var column := _clear("help",680)
 	column.add_child(_label("操作说明",36))
 	column.add_child(_label("W A S D     移动\n鼠标           瞄准\n左键           单发射击\nR                换弹\nEsc             暂停 / 返回",24))
-	column.add_child(_label("停稳后开火。只有头部命中能够击倒目标。",22,ACCENT))
+	column.add_child(_label("停稳精准射击，移动射击产生随机散布。\n只有头部命中能够击倒目标。",22,ACCENT))
 	_focus(_action(column,"back","返回",close_help,true))
 
 func close_help() -> void:
@@ -331,6 +331,7 @@ func update_status(data: Dictionary) -> void:
 	ammo.text = "%02d / %02d" % [data.mag,data.reserve]
 	reload_label.text = "换弹中" if data.reloading else ""
 	crosshair.can_fire = data.ready
+	crosshair.accurate = data.accurate
 
 func notify(message: String, duration := 0.6) -> void:
 	if toast_left > 0: return

@@ -1,7 +1,9 @@
 extends Node3D
 signal phase_changed(phase: String)
 signal score_changed
+signal shot_resolved(origin: Vector3, direction: Vector3, collision: Dictionary)
 const Rules = preload("res://scripts/game_rules.gd")
+const ShotDirection = preload("res://scripts/shot_direction.gd")
 const WeaponController = preload("res://scripts/weapon_controller.gd")
 const PlayerController = preload("res://scripts/player_controller.gd")
 const Arena = preload("res://scripts/arena.gd")
@@ -19,6 +21,7 @@ var hits := 0
 var kills := 0
 var headshots := 0
 var pending_shots := 0
+var shot_rng := RandomNumberGenerator.new()
 var shot_sound: AudioStreamPlayer
 var hit_sound: AudioStreamPlayer
 var sounds: Dictionary = {}
@@ -26,6 +29,7 @@ var sounds: Dictionary = {}
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	process_physics_priority = 10
+	shot_rng.randomize()
 	DisplayServer.window_set_min_size(Vector2i(960,540))
 	_setup_inputs()
 	arena = Arena.new()
@@ -54,6 +58,10 @@ func _ready() -> void:
 		var smoke = load("res://tests/game_smoke.gd").new()
 		add_child(smoke)
 		smoke.call_deferred("run",self)
+	elif "--spread-demo" in OS.get_cmdline_user_args():
+		var demo = load("res://tests/spread_demo.gd").new()
+		add_child(demo)
+		demo.call_deferred("run",self)
 	elif "--showcase" in OS.get_cmdline_user_args() or "--benchmark" in OS.get_cmdline_user_args() or "--previews" in OS.get_cmdline_user_args():
 		var presentation = load("res://tests/presentation_capture.gd").new()
 		add_child(presentation)
@@ -160,9 +168,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if get_tree().paused or phase != "training" or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED: return
 	if event.is_action_pressed("reload"): weapon.start_reload()
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		var error: String = weapon.fire_error(player.get_speed_ratio())
+		var error: String = weapon.fire_error()
 		if error.is_empty(): pending_shots += 1
-		elif error == "moving": ui.notify("先停稳",0.6)
 
 func _physics_process(delta: float) -> void:
 	if get_tree().paused: return
@@ -178,7 +185,7 @@ func _physics_process(delta: float) -> void:
 		var attempts := pending_shots
 		pending_shots = 0
 		for i in attempts:
-			if phase == "training": weapon.try_fire(player.get_speed_ratio())
+			if phase == "training": weapon.try_fire()
 		if phase == "training":
 			player.update_reload(weapon.reload_left_ms,float(weapon.get_data().reload_ms))
 			_update_hud()
@@ -189,7 +196,8 @@ func _on_fired() -> void:
 	shot_sound.stream = sounds[weapon.current_weapon]
 	shot_sound.play()
 	var origin: Vector3 = player.camera.global_position
-	var endpoint: Vector3 = origin - player.camera.global_basis.z * 100.0
+	var direction := ShotDirection.sample(player.camera.global_basis, player.get_speed_ratio(), shot_rng)
+	var endpoint: Vector3 = origin + direction * 100.0
 	var query := PhysicsRayQueryParameters3D.create(origin,endpoint,3)
 	query.collide_with_areas = true
 	query.exclude = [player.get_rid()]
@@ -205,6 +213,7 @@ func _on_fired() -> void:
 				if headshot: headshots += 1
 			ui.show_hit(headshot,hit_result.killed)
 			hit_sound.play()
+	shot_resolved.emit(origin,direction,result)
 	score_changed.emit()
 
 func pause_game() -> void:
@@ -222,14 +231,14 @@ func resume_game() -> void:
 	else: ui.hide_overlay()
 
 func _notification(what: int) -> void:
-	for flag in ["--smoke-test","--showcase","--benchmark","--previews"]:
+	for flag in ["--smoke-test","--showcase","--benchmark","--previews","--spread-demo"]:
 		if flag in OS.get_cmdline_user_args(): return
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_instance_valid(ui) and not get_tree().paused:
 		pause_game()
 
 func _update_hud() -> void:
 	ui.update_status({"remaining":remaining,"mag":weapon.mag,"reserve":weapon.reserve,
-		"ready":weapon.fire_error(player.get_speed_ratio()).is_empty(),"reloading":weapon.is_reloading()})
+		"ready":weapon.fire_error().is_empty(),"accurate":ShotDirection.is_accurate(player.get_speed_ratio()),"reloading":weapon.is_reloading()})
 
 func _setup_audio() -> void:
 	shot_sound = AudioStreamPlayer.new()

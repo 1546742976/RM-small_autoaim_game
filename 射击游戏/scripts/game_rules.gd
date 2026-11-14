@@ -2,6 +2,7 @@ extends RefCounted
 ## Shared training rules. All three weapons are freely selectable.
 
 const PRECISION_THRESHOLD: float = 0.34
+const MOVING_SPREAD_RATIO: float = 0.20
 const MAX_HEALTH: int = 100
 const WEAPONS: Dictionary = {
 	"deagle": {"name": "沙鹰", "mag_size": 7, "interval_ms": 225,
