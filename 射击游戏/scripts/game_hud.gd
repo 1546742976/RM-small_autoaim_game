@@ -215,7 +215,7 @@ func _card(title: String, texture_path: String, height: float, callback: Callabl
 	image.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if ResourceLoader.exists(texture_path): image.texture = load(texture_path)
 	column.add_child(image)
-	var label := _label(title,22)
+	var label := _label(title,18 if "1v1" in title else 22)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(label)
 	button.tooltip_text = title
@@ -300,6 +300,7 @@ func show_help() -> void:
 	column.add_child(_label("操作说明",36))
 	column.add_child(_label("W A S D     移动\n鼠标           瞄准\n左键           AK / M4 长按连射，沙鹰单发\nR                换弹\nEsc             暂停 / 返回",22))
 	column.add_child(_label("换弹后需重新按下左键。\n停稳精准射击，移动射击产生随机散布。\n只有头部命中能够击倒目标。",20,ACCENT))
+	if selected_map=="assessment_yard": column.add_child(_label("箱阵考核：对手会主动攻击，双方仅爆头致死。",18,MUTED))
 	_focus(_action(column,"back","返回",close_help,true))
 
 func close_help() -> void:
@@ -309,7 +310,7 @@ func close_help() -> void:
 
 func show_results(data: Dictionary) -> void:
 	var column := _clear("results",720)
-	column.add_child(_label("训练完成",42))
+	column.add_child(_label("考核结算" if data.get("duel",false) else "训练完成",42))
 	column.add_child(_label(data.reason,22,MUTED))
 	_spacer(column,18)
 	var row := HBoxContainer.new()

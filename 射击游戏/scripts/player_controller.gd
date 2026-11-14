@@ -52,7 +52,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseMotion:
 		if remote_controlled: return
-		for flag in ["--smoke-test", "--showcase", "--benchmark", "--spread-demo", "--reload-showcase", "--viewmodel-checks", "--viewmodel-benchmark"]:
+		for flag in ["--assessment-checks", "--assessment-demo", "--assessment-benchmark", "--smoke-test", "--showcase", "--benchmark", "--spread-demo", "--reload-showcase", "--viewmodel-checks", "--viewmodel-benchmark"]:
 			if flag in OS.get_cmdline_user_args() and not event.has_meta("smoke_motion"):
 				return
 		rotate_y(-event.relative.x * SENSITIVITY)

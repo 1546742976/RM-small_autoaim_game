@@ -49,3 +49,7 @@ CC BY 署名：**“Desert Eagle” by ELIZION, licensed under CC BY 4.0. “fps
 - nlohmann/json **3.11.3**，作者 Niels Lohmann，MIT；[官方源码](https://github.com/nlohmann/json/tree/v3.11.3)。未修改单头文件，随 `sdk/cpp/third_party/nlohmann/` 分发源码及 `LICENSE.MIT`。`json.hpp` SHA256 为 `9bea4c8066ef4a1c206b2be5a36302f8926f7fdc6087af5d20b417d0cf103ea6`。
 - OpenCV **4.x**，OpenCV 团队，Apache-2.0；[官方许可](https://github.com/opencv/opencv/blob/4.10.0/LICENSE)。仅由 C++ 图像示例使用，Ubuntu 通过系统软件包提供；Godot 游戏不依赖 OpenCV。本地验证使用的具体构建版本记录于验证报告，不把外部系统依赖打进游戏 EXE。
 - C++ SDK、协议实现及示例为本项目代码，适用根目录 MIT 许可证。本轮不新增收费服务或付费素材。
+
+## 箱阵考核资产
+
+场地网格、道路算法、箱堆几何和对战代码为本项目原创，MIT。箱体复用上述 ambientCG 木材贴图，地面复用石板贴图，未新增外部付费素材。`bot_ak47.glb` 从本工程既有 `normalized_ak47.glb` 复制，继承 AK 来源与许可；运行时隐藏其中旧第一人称手臂，仅用于第三人称枪械。人物复用 CC0 的 trainee.glb，运行时增加持枪骨骼约束和弹匣动作，未改动原训练地图人物文件。

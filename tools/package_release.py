@@ -1,5 +1,5 @@
-"""Package the current release; require current first-person evidence."""
-from package_first_person import main
+"""Package the current random-yard release and its verified evidence."""
+from package_assessment import main
 
 if __name__ == "__main__":
     main()

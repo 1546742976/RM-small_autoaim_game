@@ -82,4 +82,7 @@ if args.case == 'benchmark':
     assert performance['seconds'] >= 30
 if args.case == 'vision':
     assert '120 decoded BGR frames' in (out / 'client.log').read_text()
+if args.export:
+    import hashlib
+    (out / 'build.json').write_text(json.dumps({'exe_sha256': hashlib.sha256(args.game.resolve().read_bytes()).hexdigest()}), encoding='utf-8')
 print(f'CONTROL CLIENT PASS: {args.case}, {args.map}, {args.mode}, {args.resolution}')

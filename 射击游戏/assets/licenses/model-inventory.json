@@ -110,6 +110,113 @@
       }
     ]
   },
+  "bot_ak47.glb": {
+    "bytes": 16610444,
+    "sha256": "69619913ef898cf11d7df9ec4b20019c53a4785f376c07f63b324c1fc275e8bf",
+    "triangles": 107696,
+    "skins": 0,
+    "animations": [],
+    "textures": [
+      {
+        "name": "AK47WornBoltSteel_Normal_2K",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "ak47_blued_metal_base_color",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "ak47_blued_metal_roughness",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "AK47PhosphateSteel_Normal_2K",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "AK47LaminatedWoodPBR_Normal_2K",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "ak47_laminated_wood_base_color",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "ak47_laminated_wood_roughness",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "AK47BluedReceiverSteel_Normal_2K",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "Image_2",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "Image_1",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "Image_0",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "AK47BakeliteMagazine_Normal_2K",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "ak47_bakelite_polymer_base_color",
+        "size": [
+          2048,
+          2048
+        ]
+      },
+      {
+        "name": "ak47_bakelite_polymer_roughness",
+        "size": [
+          2048,
+          2048
+        ]
+      }
+    ]
+  },
   "deagle.glb": {
     "bytes": 20207080,
     "sha256": "a44e73d94e6cab62391f2c4d6a6e5b84dab6d8586a018bd35259b0bfddd1cede",

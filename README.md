@@ -1,8 +1,8 @@
 # RM 急停射击训练场
 
-面向 RM 视觉组入门的 Windows 单机第一人称训练游戏，使用 Godot + GDScript。包含训练馆和原创“旧镇街区”两张地图，三把免费枪械、第一人称双手及同步换弹动画、六个人形训练靶。
+面向 RM 视觉组入门的 Windows 单机第一人称训练游戏，使用 Godot + GDScript。包含训练馆、原创“旧镇街区”和随机“箱阵考核”三张地图，三把免费枪械、第一人称双手及同步换弹动画。前两图为六靶训练，箱阵为一对一 bot 对战。
 
-**只有爆头立即击杀；非头部命中无伤害，但阻挡子弹并计入命中。** 没有经济或护甲系统，没有玩家受攻击、自主靶子 AI、多人联机、跳跃、蹲伏或冲刺。可选的局域网控制接口允许外部程序接管玩家瞄准、单发与换弹。
+**只有爆头立即击杀；非头部命中无伤害，但阻挡子弹并计入命中。** 箱阵中的 bot 会主动寻找并攻击玩家，双方仅爆头致死。没有经济或护甲系统、多人联机、跳跃、蹲伏或冲刺。可选的局域网控制接口允许外部程序接管玩家瞄准、单发与换弹。
 
 运行 `builds/windows/RMPrecisionLab.exe`，无需 Godot 或 Blender。便携包位于 `builds/RMPrecisionLab-windows-x64.zip`，源工程入口为 `射击游戏/project.godot`。最新结果见 [验证记录](VALIDATION.md)，外观规范见 [UI_DESIGN.md](UI_DESIGN.md)，素材来源见 [素材清单](ASSET_MANIFEST.md)。
 
@@ -43,10 +43,12 @@ B、E 没有游戏交互。切换到其他窗口会自动暂停。暂停冻结�
 
 ## 地图
 
+- **箱阵考核**：72 × 42 米长方形，玩家与一个 bot 分居长轴两端。中段三条至少 4 米宽的曲折主路、四条横向连接口；2 米立方体箱子堆叠 1～3 层。每次开始／重开改变道路拐角、连接位置和箱高，暂停恢复不换图。箱子不可破坏或推动，阻挡人物和子弹。
+
 - **旧镇街区**：原创 48 × 44 米街区，以地中海小镇的石板街、旧灰泥、陶瓦、百叶窗、拱门和庭院为外观方向。围绕中央建筑可完整绕行；长街、弯巷和庭院各有一静一动两个人物。道路平坦，不需要跳跃。上层窗户、阳台和门是建筑装饰，不能进入。
 - **训练馆**：保留原有室内灰盒训练场、通道、掩体和目标布置，适合固定视线的急停训练。
 
-两图各有三个静止靶和三个沿预设路线往返的移动靶。头部、躯干、颈部、上下臂、手、大腿、小腿及脚均配置骨骼跟随碰撞体。爆头后立即关闭命中区域，播放倒下动作，1 秒后恢复，不重复计分。
+前两张训练地图各有三个静止靶和三个沿预设路线往返的移动靶。头部、躯干、颈部、上下臂、手、大腿、小腿及脚均配置骨骼跟随碰撞体。爆头后立即关闭命中区域，播放倒下动作，1 秒后恢复，不重复计分。
 
 ## 武器与规则
 
@@ -62,7 +64,7 @@ B、E 没有游戏交互。切换到其他窗口会自动暂停。暂停冻结�
 | AK-47 | 25 / 50 | 100 ms | 2.5 秒 |
 | M4A1 | 30 / 60 | 90 ms | 3.1 秒 |
 
-每回合总弹药为三个满弹夹。提前换弹保留余弹，只扣除补足所需备弹；备弹不足则装入剩余弹药。空弹夹且有备弹时自动换弹，满弹夹或无备弹不启动换弹。换弹中可移动、不能开火，结束时才补弹。
+玩家每回合总弹药为三个满弹夹。提前换弹保留余弹，只扣除补足所需备弹；备弹不足则装入剩余弹药。空弹夹且有备弹时自动换弹，满弹夹或无备弹不启动换弹。换弹中可移动、不能开火，结束时才补弹。
 
 AK、M4 按住左键按各自射速持续射击，松开即停止；沙鹰长按只发射一发。手动或自动换弹都会结束本次持续射击，换弹完成后必须重新按下左键，换弹中的点击不会排队。暂停、结算、菜单和控制权切换也会清除长按状态。程序接口仍为一次 `act` 最多一发。
 
@@ -76,7 +78,9 @@ AK、M4 按住左键按各自射速持续射击，松开即停止；沙鹰长按
 |---|---|
 | `scripts/main.gd` | menu / setup / countdown / training / results，输入、射线和统计 |
 | `scripts/game_hud.gd`、`reticle.gd` | Godot 原生界面、静态预览、几何准星与短暂反馈 |
-| `scripts/arena.gd` | 地图目录与切换，一次只持有一张地图及六个靶子 |
+| `scripts/arena.gd` | 地图目录与切换，一次只持有一张地图；训练图六靶、考核图独立对手 |
+| `scripts/yard_layout.gd`、`assessment_yard.gd` | 随机道路、箱堆、网格寻路及场地生成 |
+| `scripts/assessment_duel.gd`、`duel_bot.gd` | 考核胜负、玩家头身区域、对手感知与射击 |
 | `scenes/maps/`、`scripts/*hall.gd`、`old_town.gd` | 地图几何、灯光、出生变换、目标路线和验证路径 |
 | `scripts/map_geometry.gd` | 地图共享几何辅助函数 |
 | `scripts/game_rules.gd`、`weapon_controller.gd` | 武器参数、射击许可、弹药和换弹时间；射击许可不依赖速度 |
@@ -86,7 +90,7 @@ AK、M4 按住左键按各自射速持续射击，松开即停止；沙鹰长按
 | `assets/models/`、`assets/town/`、`assets/ui/` | GLB、2K 地图材质、离线渲染的地图与枪械预览 |
 | `tests/` | 规则、真实场景检查、实机录制与实时性能测量 |
 
-地图提供 ID、名称、预览路径、出生位置／朝向和六组目标配置。目标配置含位置、朝向、移动类型及两个运动端点。地图切换释放旧地图节点、灯光与目标。界面通过信号提交选择，不结算伤害。`control_bridge.gd` 负责可选 TCP 接口、取图及控制权；外部射击仍通过原武器与命中流程。
+地图提供 ID、名称、预览路径和出生位置／朝向；两张训练图另提供六组目标配置，考核图提供独立对手出生点及道路网格。目标配置含位置、朝向、移动类型及两个运动端点。地图切换释放旧地图节点、灯光与目标。界面通过信号提交选择，不结算伤害。`control_bridge.gd` 负责可选 TCP 接口、取图及控制权；外部射击仍通过原武器与命中流程。
 
 ## 运行、构建与素材重建
 
@@ -139,7 +143,7 @@ python tools/run_viewmodel_validation.py --engine builds/windows/RMPrecisionLab.
 python tools/run_export_regression.py
 # 联调前按 sdk/cpp/README.md 构建 C++ 客户端到 artifacts/cpp-build
 python tools/run_control_validation.py --game builds/windows/RMPrecisionLab.exe --export --case probe --resolution 1280x720 --out artifacts/first-person/cpp-probe
-python tools/package_release.py
+# 当前完整版本打包使用末尾“箱阵考核规则与复现”中的命令
 ```
 
 结果存放于 `artifacts/first-person/`；打包前还需完成最终 EXE 的输入、完整流程和程序控制回归，并写入实际画面检查记录。模型制作源文件另附 `builds/RMPrecisionLab-first-person-source.zip`，包含三份可编辑 Blender 文件、制作脚本及许可证。GLB 动画采用 120 Hz 烘焙与导入，运行时无需 Blender。
@@ -147,3 +151,29 @@ python tools/package_release.py
 ## 许可证
 
 项目代码与原创地图为 MIT；外部模型按各自许可证分发，参见 [ASSET_MANIFEST.md](ASSET_MANIFEST.md)。地图材质为 ambientCG CC0；字体为 Noto Sans SC / SIL OFL 1.1。Godot 声明见 `THIRD_PARTY_NOTICES.md`。新增素材支出为 0 元。
+
+
+## 箱阵考核规则与复现
+
+3 秒倒数后开始最多 60 秒的一对一对战，不循环刷新。击倒对手获胜、玩家被爆头失败；双方在同一物理帧发出的子弹均结算，同时死亡为平局。玩家弹尽且未击杀则失败，超时未击杀为未分胜负。最后一发击杀优先于弹尽和超时。
+
+标准 bot：3.5 米／秒移动，120° 水平视野、45 米发现距离，0.45 秒连续可见反应时间；每轮三发点射、轮间 0.6 秒，瞄准偏差最大 1.2°，转向上限 180°／秒。必须停稳才开火；失去视线立即停火，仅记忆最后位置 2 秒。固定 AK、25 发弹匣、2.5 秒换弹、无限备弹；玩家弹药保持原规则。对手使用已有角色和枪械，持枪采用骨段长度约束，换弹有取匣表现。
+
+地图采用同一整数网格生成几何和寻路，保留三条独立主路并连接相邻道路。每局布局指纹与上一局不同；固定种子仅用于本地检查：启动参数 `-- --assessment-seed=123`。这会有意重复同一布局，不用于普通随机训练。地图种子、箱堆、路径和 bot 坐标不进入 C++ 协议；死亡和重开使旧帧动作失效。
+
+本轮检查与演示：
+
+```powershell
+python tools/run_assessment.py --export
+python tools/run_assessment.py --export --size 960x540
+python tools/run_assessment.py --export --mode demo
+python tools/run_assessment.py --export --mode benchmark
+python tools/run_assessment.py --export --mode benchmark --size 960x540
+python tools/run_export_regression.py --out artifacts/assessment/regression
+python tools/run_control_validation.py --game builds/windows/RMPrecisionLab.exe --export --case probe --map assessment_yard --resolution 1280x720 --out artifacts/assessment/cpp-probe
+python tools/package_assessment.py
+```
+
+结果在 `artifacts/assessment/`，实际检查范围见 VALIDATION.md。便携包内本轮媒体在 `media/assessment/`；其他媒体为之前版本的历史记录。完整 Godot 源工程另打包为 `builds/RMPrecisionLab-godot-source.zip`。
+
+性能验收目前为**独占环境待复测**：采样时另一款游戏同时占用显卡，保留诊断数据，但不据此确认稳定 60 FPS。已按用户选择先完成交付。

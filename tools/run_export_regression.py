@@ -5,10 +5,13 @@ import json
 import os
 import re
 import subprocess
+import argparse
 
 ROOT = Path(__file__).resolve().parents[1]
 GAME = ROOT / "builds/windows/RMPrecisionLab.exe"
-OUT = ROOT / "artifacts/first-person"
+parser=argparse.ArgumentParser()
+parser.add_argument('--out',type=Path,default=ROOT/'artifacts/first-person')
+OUT=parser.parse_args().out.resolve()
 env = os.environ.copy()
 for key in ["APPDATA", "LOCALAPPDATA", "TEMP", "TMP"]:
     directory = ROOT / "artifacts/runtime" / key.lower()
@@ -29,6 +32,8 @@ for size in ["1280x720", "960x540"]:
         assert result.returncode == 0, f"{name} {size}: exit {result.returncode}"
         assert not re.search(r"SCRIPT ERROR:|^ERROR:|SMOKE FAIL|INPUT FAIL|CONTROL FAIL|^FAIL", text, re.M), folder
         summaries = [line for line in text.splitlines() if re.search(r"PASS|failures|checks", line)]
+        expected = {"gameplay": r"SMOKE PASS: \d+ integration checks \(0 failures\)", "input": r"PASS: \d+ input checks; failures: 0", "network": r"CONTROL PASS: \d+ checks \(0 failures\)"}[name]
+        assert re.search(expected, text), f"{name} {size}: missing completion marker"
         results.append({"test": name, "resolution": size, "summary": summaries, "log": str(log.relative_to(ROOT))})
         print(name, size, summaries, flush=True)
 (OUT / "export-regression.json").write_text(json.dumps({"exe_sha256": hashlib.sha256(GAME.read_bytes()).hexdigest(), "runs": results}, indent=2), encoding="utf-8")

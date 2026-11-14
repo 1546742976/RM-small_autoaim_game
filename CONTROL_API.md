@@ -90,3 +90,7 @@ TCP 字节流，一次消息格式为：`uint32_be JSON字节数` + `UTF-8 JSON`
 C++ SDK 使用随源码分发的 nlohmann/json 3.11.3（MIT，许可证在 `third_party/nlohmann/`）；OpenCV 4 由 Ubuntu 软件包或本地构建提供。协议自身不要求安装 OpenCV，游戏运行不需要 C++ 工具链或 OpenCV。
 
 本机验证、C++ 联调、性能结果及 Ubuntu／实体 NUC 是否实际运行，见 `VALIDATION.md`。`--control-fixture`、`--control-smoke` 仅供仓库验证工具使用，不属于网络 API；网络命令无法选择地图、移动、开局或重开。
+
+## 箱阵考核兼容性
+
+箱阵对手的 AI 在游戏内部运行，接口仍只控制当前玩家。协议版本、取图及单次 act 开火语义不变；不增加地图种子、箱子布局、导航网格、bot 坐标或视线信息。死亡进入 results，并按原有阶段变化失效待执行动作。选择和生成地图仍在游戏准备页进行，接口不能启动或重建考核。

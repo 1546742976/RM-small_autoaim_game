@@ -29,6 +29,7 @@ var shot_rng := RandomNumberGenerator.new()
 var shot_sound: AudioStreamPlayer
 var hit_sound: AudioStreamPlayer
 var sounds: Dictionary = {}
+var duel: Node
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -48,7 +49,8 @@ func _ready() -> void:
 	add_child(weapon)
 	weapon.fired.connect(_on_fired)
 	weapon.reload_started.connect(clear_manual_fire)
-	weapon.depleted.connect(func(): finish_round("弹药耗尽"))
+	weapon.depleted.connect(func():
+		if not is_instance_valid(duel): finish_round("弹药耗尽"))
 	ui = GameHUD.new()
 	add_child(ui)
 	ui.setup_requested.connect(show_setup)
@@ -66,7 +68,11 @@ func _ready() -> void:
 		if not control_bridge.configure(self):
 			get_tree().quit(1)
 			return
-	if "--smoke-test" in OS.get_cmdline_user_args():
+	if "--assessment-checks" in OS.get_cmdline_user_args() or "--assessment-demo" in OS.get_cmdline_user_args() or "--assessment-benchmark" in OS.get_cmdline_user_args():
+		var checks=load("res://tests/assessment_checks.gd").new()
+		add_child(checks)
+		checks.call_deferred("run",self)
+	elif "--smoke-test" in OS.get_cmdline_user_args():
 		var smoke = load("res://tests/game_smoke.gd").new()
 		add_child(smoke)
 		smoke.call_deferred("run",self)
@@ -113,6 +119,7 @@ func _reset_player() -> void:
 	player.reset_position(spawn.origin,spawn.basis.get_euler().y)
 
 func _stop_play() -> void:
+	if is_instance_valid(duel): duel.stop()
 	if is_instance_valid(control_bridge): control_bridge.invalidate("state_changed")
 	get_tree().paused = false
 	clear_manual_fire()
@@ -145,6 +152,9 @@ func _select_loadout(map_id: String, weapon_id: String) -> void:
 func start_round() -> void:
 	if phase != "setup" and phase != "results": return
 	_stop_play()
+	if is_instance_valid(duel):
+		remove_child(duel)
+		duel.free()
 	round_id += 1
 	arena.load_map(selected_map)
 	arena.reset_targets()
@@ -152,6 +162,10 @@ func start_round() -> void:
 	weapon.active = false
 	player.set_weapon(selected_weapon)
 	_reset_player()
+	if selected_map=="assessment_yard":
+		duel=preload("res://scripts/assessment_duel.gd").new()
+		add_child(duel)
+		duel.initialize(self)
 	shots = 0
 	hits = 0
 	kills = 0
@@ -178,7 +192,7 @@ func finish_round(reason: String) -> void:
 	_stop_play()
 	phase = "results"
 	player.weapon_root.hide()
-	ui.show_results({"reason":reason,"kills":kills,"accuracy":accuracy()})
+	ui.show_results({"reason":reason,"kills":kills,"accuracy":accuracy(),"duel":is_instance_valid(duel)})
 	phase_changed.emit(phase)
 
 func accuracy() -> float:
@@ -235,9 +249,10 @@ func _physics_process(delta: float) -> void:
 		if remaining <= 0: begin_training()
 	elif phase == "training":
 		remaining = maxf(0,remaining-delta)
-		if remaining <= 0:
+		if remaining <= 0 and not is_instance_valid(duel):
 			finish_round("时间到")
 			return
+		if is_instance_valid(duel): duel.step(delta)
 		if is_instance_valid(control_bridge): control_bridge.apply_pending()
 		var attempts := pending_shots
 		pending_shots = 0
@@ -245,6 +260,7 @@ func _physics_process(delta: float) -> void:
 			if phase == "training": weapon.try_fire()
 		if phase == "training" and manual_fire_held and not player.remote_controlled and attempts == 0:
 			weapon.try_fire()
+		if is_instance_valid(duel) and phase=="training": duel.resolve()
 		if phase == "training":
 			player.update_reload(weapon.reload_left_ms,float(weapon.get_data().reload_ms),weapon.reload_kind,weapon.reload_serial)
 			_update_hud()
@@ -292,6 +308,8 @@ func resume_game() -> void:
 	else: ui.hide_overlay()
 
 func _notification(what: int) -> void:
+	for flag in ["--assessment-checks","--assessment-demo","--assessment-benchmark"]:
+		if flag in OS.get_cmdline_user_args(): return
 	if is_instance_valid(player) and player.remote_controlled: return
 	for flag in ["--smoke-test","--showcase","--benchmark","--previews","--spread-demo","--control-smoke","--control-fixture","--input-checks","--viewmodel-checks","--reload-showcase","--viewmodel-benchmark"]:
 		if flag in OS.get_cmdline_user_args(): return
