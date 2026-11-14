@@ -29,7 +29,6 @@ var memory:=0.0
 var reaction:=0.0
 var burst_left:=0
 var burst_wait:=0.0
-var aim_offset:=Vector2.ZERO
 var aim_direction:=Vector3.FORWARD
 var visible_player:=false
 var clock:=0.0
@@ -123,7 +122,7 @@ func can_see(point: Vector3) -> bool:
 	var query:=PhysicsRayQueryParameters3D.create(eye,point,1|16)
 	query.collide_with_areas=true
 	var hit:=get_world_3d().direct_space_state.intersect_ray(query)
-	return not hit.is_empty() and hit.collider.has_meta("player_region")
+	return not hit.is_empty() and hit.collider.has_meta("player_region") and hit.collider.get_meta("headshot",false)
 
 func navigate(destination: Vector3,delta: float) -> Vector3:
 	if repath<=0:
@@ -181,15 +180,18 @@ func step(delta: float) -> void:
 		if not floor_hit.is_empty(): floor_head=floor_hit.position.y+1.65
 	var prediction: Vector3=Profile.intercept(muzzle,head,game.player.get_real_velocity(),not game.player.is_on_floor(),floor_head)
 	var desired_aim: Vector3=(prediction-muzzle).normalized()
-	aim_direction=aim_direction.slerp(desired_aim,minf(1,Profile.AIM_TURN*delta/maxf(0.0001,aim_direction.angle_to(desired_aim)))).normalized()
+	aim_direction=desired_aim
+	if visible_player and not weapon.is_reloading():
+		gun.look_at(gun.global_position+aim_direction,Vector3.UP)
+		muzzle=gun.global_transform*Vector3(0,0.1975,-0.8215)
+		prediction=Profile.intercept(muzzle,head,game.player.get_real_velocity(),not game.player.is_on_floor(),floor_head)
+		aim_direction=(prediction-muzzle).normalized()
 	var real:=get_real_velocity()
 	var stopped:=Vector2(real.x,real.z).length()/Profile.SPEED<0.34
 	var clear: bool=tactics.clear_line(global_position+Vector3.UP*1.65,muzzle) and tactics.clear_line(muzzle,head) and tactics.clear_line(muzzle,prediction)
-	if not navigation_only and not game.settling and visible_player and clear and is_on_floor() and stopped and desired.length()<0.1 and reaction>=Profile.REACTION and aim_direction.angle_to(desired_aim)<deg_to_rad(0.4):
+	if not navigation_only and not game.settling and visible_player and clear and is_on_floor() and stopped and desired.length()<0.1 and reaction>=Profile.REACTION:
 		if burst_left==0 and burst_wait<=0 and not weapon.is_reloading(): burst_left=4 if to_player.length()<=12 else 3
 		if burst_left>0 and weapon.fire_error().is_empty():
-			var angle:=rng.randf()*TAU
-			aim_offset=Vector2(cos(angle),sin(angle))*tan(deg_to_rad(Profile.ERROR))*sqrt(rng.randf())
 			weapon.try_fire()
 			burst_left-=1
 			if burst_left==0:
@@ -202,15 +204,14 @@ func step(delta: float) -> void:
 
 func _fire() -> void:
 	shot_count+=1
-	if "--bot-checks" in OS.get_cmdline_user_args(): shot_log.append({"time":clock,"position":global_position,"grounded":is_on_floor(),"reaction":reaction})
+	if "--bot-checks" in OS.get_cmdline_user_args() or "--lock-checks" in OS.get_cmdline_user_args(): shot_log.append({"time":clock,"position":global_position,"grounded":is_on_floor(),"reaction":reaction,"speed":Vector2(get_real_velocity().x,get_real_velocity().z).length(),"direction":aim_direction})
 	var origin: Vector3=gun.global_transform*Vector3(0,0.1975,-0.8215)
 	var eye:=global_position+Vector3(0,1.65,0)
 	var guard:=PhysicsRayQueryParameters3D.create(eye,origin,17)
 	guard.collide_with_areas=true
 	var obstruction:=get_world_3d().direct_space_state.intersect_ray(guard)
 	if not obstruction.is_empty(): origin=obstruction.position+(eye-origin).normalized()*0.011
-	var basis:=Basis.looking_at(aim_direction)
-	var direction: Vector3=(aim_direction+basis.x*aim_offset.x+basis.y*aim_offset.y).normalized()
+	var direction: Vector3=aim_direction
 	game.projectiles.spawn(origin,direction,"bot")
 	flash_left=0.065
 	var voice: AudioStreamPlayer3D=shot_voices[sound_index]
@@ -225,7 +226,7 @@ func pose(delta: float) -> void:
 	target._visuals.sample(clock,-1)
 	var reload_p: float=1.0-weapon.reload_left_ms/2500.0 if weapon.is_reloading() else 0.0
 	gun.rotation=Vector3(0,0,sin(reload_p*PI)*0.3)
-	if visible_player: gun.rotation.x=asin(clampf(aim_direction.y,-1,1))
+	if visible_player and not weapon.is_reloading(): gun.look_at(gun.global_position+aim_direction,Vector3.UP)
 	if magazine:
 		magazine.transform=magazine_home
 		magazine.position.y-=sin(reload_p*PI)*0.3

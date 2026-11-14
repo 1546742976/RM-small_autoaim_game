@@ -81,7 +81,7 @@ func fixtures() -> void:
 	bot.tactics.cover_left=10
 	bot.tactics.decision_left=0
 	bot.weapon.mag=4
-	bot.tactics.desired(dt,true)
+	bot.tactics.desired(dt,false)
 	check(bot.weapon.is_reloading(),"low magazine in cover reloads")
 	var old_clock: float=bot.clock
 	game.pause_game()
@@ -98,6 +98,7 @@ func fixtures() -> void:
 	bot.weapon.reload_left_ms=0
 	bot.weapon.mag=25
 	bot.position=Vector3(3,.02,34)
+	bot.rotation.y=0
 	bot.velocity=Vector3.ZERO
 	game.player.reset_position(Vector3(-8,.02,34),-PI/2)
 	bot.tactics.has_cover=false
@@ -133,7 +134,7 @@ func fixtures() -> void:
 	bot.tactics.stuck_time=0
 	bot.tactics.stuck_origin=bot.position
 	bot.tactics.begin_move(bot.position+Vector3.RIGHT*3)
-	for i in 45: bot.tactics.desired(.05,true)
+	for i in 45: bot.tactics.desired(.05,false)
 	check(bot.tactics.recovery_count>=2,"stationary blocked mover repaths and replaces target")
 	bot.position=Vector3(20,.02,34)
 	check(not bot.tactics.safe_jump(Vector3.RIGHT),"boundary without landing rejects jump")

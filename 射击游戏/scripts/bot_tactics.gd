@@ -132,6 +132,16 @@ func desired(delta: float, visible_head: bool) -> Vector3:
 	cover_left-=delta
 	jump_left=maxf(0,jump_left-delta)
 	blocked_time=0 if visible_head else blocked_time+delta
+	if visible_head:
+		moving=false
+		bursts=0
+		stuck_time=0
+		stuck_origin=bot.global_position
+		state="lock"
+		# Finish an airborne trajectory, but never initiate a jump while locked.
+		if not bot.is_on_floor() and jumped: return jump_velocity
+		return Vector3.ZERO
+	if state=="lock": decision_left=0
 	if not bot.is_on_floor() and jumped:
 		state="jump"
 		return jump_velocity
